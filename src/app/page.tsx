@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import Image from 'next/image'
 import Link from 'next/link'
 import { 
@@ -413,7 +411,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-[#1A2C42] border-t border-slate-800 text-[#667A8A] py-8 px-4 text-center text-xs">
-        <p>© {new Date().getFullYear()} Escuela Virtual Lila Castro. Todos los derechos reservados.</p>
+        <p>© 2027 Escuela Virtual Lila Castro. Todos los derechos reservados.</p>
       </footer>
     </div>
   )
