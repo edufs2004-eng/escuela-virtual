@@ -1,0 +1,176 @@
+COLEGIO VIRTUAL - DOCUMENTO BASE DEL PROYECTO
+================================================
+
+Fecha de análisis: 2 de noviembre de 2026
+Repositorio: escuela-virtual
+
+1. RESUMEN DEL PROYECTO
+-----------------------
+
+El proyecto es una aplicación web en español para la "Colegio Virtual Escencia", orientada a presentar su oferta educativa y captar consultas o
+postulaciones de familias en Chile. La experiencia visible está construida como
+una página pública de presentación (landing page), con navegación por secciones,
+información académica, precios y un formulario de contacto.
+
+Aunque el contenido promociona una plataforma integrada para estudiantes y
+apoderados, el código revisado no muestra todavía un portal privado, gestión
+académica, autenticación ni una operación conectada a una base de datos. Por
+esto, conviene entender el estado actual como una primera interfaz comercial y
+no como un sistema escolar completo.
+
+2. PROPUESTA Y CONTENIDO QUE MUESTRA LA PÁGINA
+---------------------------------------------
+
+La página principal presenta:
+
+- Admisión anunciada para el proceso 2027, desde 7.º Básico hasta 4.º Medio.
+- Clases en vivo y grupos de hasta 15 estudiantes.
+- Bloques semanales de 90 minutos por asignatura obligatoria, según el texto
+  promocional.
+- Matemáticas, Lenguaje, Ciencias e Historia; también se anuncia Inglés.
+- Nivelación académica voluntaria, especialmente en Matemáticas y Lenguaje.
+- Talleres complementarios sobre hábitos de estudio, habilidades digitales,
+  orientación vocacional y organización escolar.
+- Acompañamiento psicopedagógico y un entorno adaptado a la neurodivergencia,
+  incluidos TEA y TDAH, de acuerdo con la descripción de la institución.
+- Una sección de precios que informa un total del primer año de $695.000 CLP:
+  $95.000 de matrícula y $600.000 de arancel anual. Menciona alternativas de
+  pago en 1, 3 o 10 cuotas.
+- Enlaces que llevan a las secciones de propuesta, inclusión, oferta, precios
+  y contacto.
+
+Estos datos describen lo publicado en la interfaz; no se verificó que los
+servicios, cupos, precios, horarios o condiciones estén confirmados fuera del
+código. Conviene validarlos con la institución antes de usarlos como
+información definitiva.
+
+3. ESTADO FUNCIONAL OBSERVADO
+-----------------------------
+
+Implementado en el código:
+
+- Una única página principal, definida en src/app/page.tsx.
+- Navegación mediante enlaces internos a secciones de esa página.
+- Diseño adaptable con clases de Tailwind CSS y estilos globales.
+- Formulario visual con campos para nombre del apoderado, correo, teléfono,
+  nivel de interés y mensaje.
+- Componentes de iconos de lucide-react.
+- Metadatos básicos en español para el título y la descripción del sitio.
+
+No se encontró implementado en los archivos revisados:
+
+- Envío o almacenamiento de las consultas del formulario.
+- Validación de negocio o confirmación de recepción de una postulación.
+- Inicio de sesión, registro, roles o recuperación de contraseña.
+- Portal de estudiantes o apoderados.
+- Gestión de cursos, estudiantes, docentes, asistencia, notas, horarios o
+  materiales.
+- Integración de pagos.
+- Rutas de API o lógica de servidor para esas operaciones.
+
+El formulario no tiene un manejador de envío, una acción configurada ni nombres
+de campo para procesar sus datos. En su estado actual es una interfaz y no debe
+considerarse un canal de contacto operativo.
+
+4. TECNOLOGÍAS Y ORGANIZACIÓN
+-----------------------------
+
+- Next.js 16.4.2 con App Router.
+- React y React DOM 19.3.0.
+- TypeScript 5 con modo estricto.
+- Tailwind CSS 4.
+- lucide-react para iconografía.
+- Supabase figura entre las dependencias.
+- El código fuente de la aplicación está principalmente bajo src/.
+
+Archivos relevantes:
+
+- src/app/page.tsx: contenido y composición de la página principal.
+- src/app/layout.tsx: layout raíz, idioma español y metadatos.
+- src/app/globals.css: Tailwind, estilos globales, animación y colores de marca.
+- src/components/ui/Button.tsx: componente de botón con variantes visuales.
+- lib/supabase.ts: inicializa un cliente de Supabase con variables de entorno.
+- next.config.ts: configuración de Next.js, Turbopack y opciones experimentales.
+- package.json: dependencias y comandos del proyecto.
+- public/: recursos estáticos públicos.
+
+La inicialización de Supabase utiliza NEXT_PUBLIC_SUPABASE_URL y
+NEXT_PUBLIC_SUPABASE_ANON_KEY, cuyos nombres están previstos en el entorno local.
+No se incluyeron sus valores en este documento. El cliente existe, pero no se
+encontraron usos de él desde la página ni flujos conectados a Supabase.
+
+5. OBSERVACIONES Y PUNTOS POR REVISAR
+-------------------------------------
+
+- La página usa la ruta de imagen /logo.png, mientras que el inventario del
+  repositorio muestra src/logo.png y no public/logo.png. Revisar la ubicación o
+  importación del logo para asegurar que cargue correctamente.
+- La propuesta promociona una "gestión centralizada" de horarios, materiales y
+  seguimiento, pero esa funcionalidad no aparece implementada en el código
+  revisado. Aclarar si es una fase futura o si hay otro sistema externo.
+- El formulario recoge datos potencialmente personales, incluidos los de
+  apoderados. Antes de habilitar su envío, definir almacenamiento, acceso,
+  retención, aviso de privacidad y protección de esos datos.
+- El menú de navegación principal está oculto en pantallas pequeñas y no se
+  observa un menú móvil alternativo.
+- README.md conserva instrucciones genéricas de create-next-app y no explica
+  todavía el dominio funcional ni la configuración de Supabase del proyecto.
+- El proyecto no declara comandos de lint o test en package.json.
+- Confirmar que el período de admisión, los valores y las condiciones publicados
+  sean vigentes. En la interfaz también aparece un pie de página fechado en 2027.
+
+6. BASE SUGERIDA PARA AVANZAR
+----------------------------
+
+Una secuencia razonable para convertir la presentación en un producto
+funcional, sujeta a las prioridades del equipo, sería:
+
+1. Confirmar alcance, usuarios y funcionamiento real de la institución:
+   postulaciones, gestión académica, comunicación y pagos.
+2. Corregir y validar los recursos visibles, navegación móvil, contenido,
+   precios y contacto institucional.
+3. Definir qué debe ocurrir al enviar el formulario. Implementar persistencia y
+   respuesta de éxito/error, junto con validación y medidas de privacidad.
+4. Si se construirá un portal, definir roles y permisos antes de crear
+   autenticación o datos de estudiantes.
+5. Diseñar el modelo de datos y flujos mínimos según los procesos confirmados.
+   Como punto de partida podrían evaluarse estudiantes, apoderados, docentes,
+   cursos, matrículas, horarios, asistencia, evaluaciones y materiales; no se
+   asume que todos sean necesarios.
+6. Añadir pruebas y comandos de validación acordes a las funcionalidades que se
+   incorporen, y documentar cómo configurar y ejecutar el proyecto.
+
+Preguntas de definición pendientes:
+
+- ¿El primer objetivo es recibir postulaciones o crear también un portal de
+  gestión escolar?
+- ¿Quiénes usarán el sistema y qué permisos necesita cada tipo de usuario?
+- ¿Cómo se gestionan hoy admisiones, horarios, clases, asistencia y notas?
+- ¿Supabase será la base de datos y plataforma de autenticación elegida?
+- ¿A qué correo, equipo o sistema se deben enviar las consultas?
+- ¿Qué requisitos de privacidad y tratamiento de datos deben aplicarse?
+- ¿Qué precios, niveles, fechas y servicios están confirmados para publicar?
+
+7. EJECUCIÓN LOCAL
+------------------
+
+Requisitos: Node.js y dependencias del proyecto instaladas.
+
+Comandos declarados en package.json:
+
+- npm run dev: iniciar el servidor de desarrollo.
+- npm run build: generar la compilación de producción.
+- npm run start: iniciar la aplicación compilada.
+
+Para usar la integración preparada con Supabase, configurar localmente
+NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en el entorno. No
+compartir ni publicar credenciales. La aplicación puede requerir esas variables
+para inicializar el cliente al importar lib/supabase.ts.
+
+8. ALCANCE DE ESTE ANÁLISIS
+---------------------------
+
+Este documento se basa en los archivos presentes en el repositorio al momento
+del análisis. Resume la estructura y el comportamiento que se puede inferir del
+código; no reemplaza la validación con responsables de la escuela, pruebas de
+funcionamiento ni una revisión de requisitos legales, operativos o pedagógicos.

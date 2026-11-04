@@ -62,7 +62,10 @@ export default function Home() {
           </nav>
 
           {/* Botón Acción Rápida */}
-          <div>
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-xs font-bold text-[#667A8A] hover:text-[#4B8ECB] transition-colors">
+              Ingresar
+            </Link>
             <a 
               href="#contacto" 
               className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all inline-block"
