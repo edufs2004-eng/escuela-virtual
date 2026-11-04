@@ -1,9 +1,8 @@
-'client-side' // O componente de cliente estándar en Next.js
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase' // Asegúrate de tener tu cliente configurado aquí
+import { supabase } from '@/lib/supabase'
 import { BookOpen, Lock, Mail, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
@@ -19,21 +18,43 @@ export default function LoginPage() {
     setLoading(true)
     setErrorMsg('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // 1. Autenticar con Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (error) {
+    if (authError || !authData.user) {
       setErrorMsg('Credenciales inválidas. Por favor verifica tus datos.')
       setLoading(false)
       return
     }
 
-    // Validación simple de redirección (puedes ajustarla según el rol del usuario)
-    if (data.user) {
-      // Si es el admin principal o cumple con el correo de administración
+    // 2. Consultar el rol del usuario en la tabla 'profiles'
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (profileError || !profileData) {
+      setErrorMsg('No se encontró un rol asociado a este usuario.')
+      setLoading(false)
+      return
+    }
+
+    // 3. Redirección basada estrictamente en el rol
+    const role = profileData.role
+
+    if (role === 'admin') {
       router.push('/admin/ramos')
+    } else if (role === 'docente') {
+      router.push('/docente/panel') // Próxima fase
+    } else if (role === 'alumno') {
+      router.push('/alumno/panel') // Próxima fase
+    } else {
+      setErrorMsg('Rol de usuario no autorizado.')
+      setLoading(false)
     }
   }
 
@@ -41,13 +62,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#EAF2F8] text-[#1A2C42] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden p-8 space-y-8">
         
-        {/* Cabecera del Login */}
         <div className="text-center space-y-2">
           <div className="inline-flex w-12 h-12 bg-[#5B9CD8]/10 rounded-2xl items-center justify-center text-[#4B8ECB] mb-2">
             <BookOpen className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-extrabold text-[#1A2C42]">Portal Escuela Virtual</h2>
-          <p className="text-xs text-[#667A8A]">Ingresa con tu cuenta de administrador, docente o apoderado</p>
+          <p className="text-xs text-[#667A8A]">Ingresa con tu cuenta institucional</p>
         </div>
 
         {errorMsg && (
@@ -56,7 +76,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Formulario */}
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-[#1A2C42] mb-1.5">Correo Electrónico</label>

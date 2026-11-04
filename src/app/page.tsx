@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import logo from '../logo.png'
 import { 
   Users, 
   Clock, 
@@ -34,7 +35,7 @@ export default function Home() {
           <Link href="/" className="flex items-center gap-3 group transition-transform duration-200 hover:scale-[1.02]">
             <div className="relative w-11 h-11 bg-[#5B9CD8]/10 rounded-xl flex items-center justify-center overflow-hidden border border-[#5B9CD8]/30 shadow-xs">
               <Image 
-                src="/logo.png" 
+                src={logo}
                 alt="Logo Escuela Virtual Lila Castro" 
                 width={44} 
                 height={44} 
