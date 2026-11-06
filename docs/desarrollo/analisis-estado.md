@@ -1,0 +1,63 @@
+# Análisis del estado del proyecto
+
+**Fecha de revisión:** 6 de noviembre de 2026  
+**Base funcional:** archivos disponibles en el repositorio en esta fecha  
+**Contextos contrastados:** [contexto del proyecto](../../contexto%20del%20proyecto.md) y [análisis anterior](../../colegio_virtual.txt)
+
+## Resumen ejecutivo
+
+El proyecto ya no es solamente la landing descrita en `colegio_virtual.txt`: ahora también contiene un inicio de sesión con Supabase y un panel administrativo para consultar, crear y eliminar bloques de ramos. Sin embargo, el flujo de matrícula descrito en el contexto —incluidas las reservas temporales con TTL— todavía no está implementado. Tampoco se encontró en el repositorio el esquema o las migraciones de base de datos que permitan confirmar la estructura y las políticas del proyecto Supabase remoto.
+
+La prioridad recomendada es cerrar las definiciones operativas de matrícula y privacidad y, después, implementar la reserva de cupos de forma atómica en la base de datos. No conviene contar cupos ni aplicar expiraciones solamente desde la interfaz: dos familias podrían intentar reservar el último cupo al mismo tiempo.
+
+## Qué existe actualmente
+
+- **Sitio público:** una página de presentación con oferta, niveles, precios, contacto y enlaces entre secciones, en [`src/app/page.tsx`](../../src/app/page.tsx).
+- **Inicio de sesión:** autenticación con correo y contraseña de Supabase y consulta del rol en `profiles`, en [`src/app/login/page.tsx`](../../src/app/login/page.tsx).
+- **Acceso administrativo:** el panel verifica sesión y rol `admin` antes de mostrar la gestión de bloques, en [`src/app/admin/ramos/page.tsx`](../../src/app/admin/ramos/page.tsx).
+- **Gestión de bloques:** consulta, creación y eliminación de filas de `bloques_ramos`. Al crear, fija capacidad en 15 e inscritos en 0.
+- **Cliente de Supabase:** inicialización bajo demanda con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, en [`src/lib/supabase.ts`](../../src/lib/supabase.ts).
+- **Interfaz:** Next.js 16, React 19, TypeScript, Tailwind CSS 4 y Lucide React. Los comandos definidos son `dev`, `build` y `start`.
+
+## Qué está incompleto o no se encontró
+
+- El formulario público de contacto es visual: no tiene envío, acción, nombres de campos ni confirmación de recepción.
+- Los botones de reserva llevan a contacto; no consultan bloques ni crean una matrícula.
+- No existe reserva temporal, contador TTL, vencimiento, liberación automática, confirmación de cupo ni control transaccional de concurrencia.
+- No se encontró carga de documentos, flujo de inscripción de estudiante/apoderado ni integración con Transbank/Webpay.
+- Los roles `docente` y `alumno` se reconocen al iniciar sesión, pero sus portales no están implementados.
+- El panel permite crear y eliminar bloques, pero no editarlos. También exige un profesor al crear, aunque el contexto indica que debe poder quedar vacío o nulo.
+- No se encontraron migraciones SQL ni archivos de políticas RLS. Por tanto, no es posible verificar desde este repositorio las tablas, restricciones, funciones, permisos o configuración existentes en Supabase.
+- La navegación principal está oculta en pantallas pequeñas y no se encontró un menú móvil alternativo.
+- `README.md` conserva el texto genérico de Next.js; `colegio_virtual.txt` es una evaluación anterior y debe leerse considerando el avance posterior de autenticación y administración.
+- `package.json` no declara comandos de lint o test.
+
+## Diferencias de requisitos que requieren confirmación
+
+Los documentos y la página no describen exactamente la misma oferta:
+
+- El contexto plantea cobertura de 1.º Básico a 4.º Medio; la página anuncia de 7.º Básico a 4.º Medio.
+- El contexto menciona alternativas de 1, 3, 5 o 10 cuotas; la página muestra 1, 3 y 10.
+- El contexto usa el nombre “Escuela Virtual escencia/Escencia”; la página usa “Escuela Virtual Lila Castro”.
+- El contexto pide profesor opcional; el formulario administrativo actual lo exige.
+- El TTL está descrito como un intervalo de 5 a 10 minutos, pero no se define qué duración exacta aplicar ni desde qué evento comienza.
+
+Validar con la institución los niveles, nombre oficial, precios, modalidades y período de admisión antes de sincronizar el contenido público y el sistema de matrícula.
+
+## Riesgos y dependencias antes de abrir matrículas
+
+1. **Integridad de cupos:** la disponibilidad y la creación/expiración de reservas deben resolverse en una operación atómica del servidor/base de datos, con límite de capacidad aplicado allí.
+2. **Autorización:** las comprobaciones del navegador mejoran la experiencia, pero no reemplazan RLS y permisos de base de datos. Las operaciones administrativas y las reservas necesitan políticas probadas.
+3. **Datos personales:** definir qué datos y documentos son realmente necesarios, quién puede verlos, cuánto tiempo se conservan y cómo se almacenan antes de aceptar información de estudiantes y apoderados.
+4. **Expiración:** decidir cómo se detectan las reservas vencidas y cómo se asegura su liberación aunque ningún usuario vuelva a abrir la página.
+5. **Configuración remota:** verificar variables y estructura de Supabase sin publicar sus valores. La presencia del cliente en el código no demuestra que el entorno remoto esté configurado o probado.
+
+## Recomendación
+
+El próximo hito debería ser **“reserva temporal de cupo segura y comprobable”**, sin integrar pagos todavía. Primero confirmar las decisiones operativas pendientes; luego definir el esquema SQL, RLS y una operación atómica de reserva/confirmación/expiración; finalmente conectar una interfaz mínima y probar dos intentos simultáneos por el último cupo, la expiración y los permisos.
+
+La integración de pago puede abordarse cuando el cupo y el estado de matrícula tengan reglas confiables. Mantener el pago separado evita confirmar una inscripción basada en una reserva ya vencida o en un cupo sobrevendido.
+
+## Alcance de esta revisión
+
+Este análisis inspecciona el código y los documentos presentes en el repositorio; no valida el proyecto Supabase remoto, los precios con la institución, requisitos legales ni el funcionamiento desplegado. El estado del repositorio ya contenía cambios locales en las páginas de administración e inicio de sesión y en el cliente de Supabase; esos archivos se revisaron sin modificarlos.

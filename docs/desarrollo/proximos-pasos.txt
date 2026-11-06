@@ -1,0 +1,50 @@
+ESCUELA VIRTUAL - PRÓXIMOS PASOS DE DESARROLLO
+Revisado: 6 de noviembre de 2026
+
+OBJETIVO RECOMENDADO
+Implementar primero reservas temporales de cupos con reglas seguras en Supabase. Dejar pagos para una fase posterior.
+
+ANTES DE PROGRAMAR: CONFIRMAR CON LA INSTITUCIÓN
+1. Nombre oficial que se mostrará en el sitio.
+2. Niveles disponibles: el contexto dice 1.º Básico a 4.º Medio y el sitio anuncia 7.º Básico a 4.º Medio.
+3. Precios y cuotas vigentes: el contexto incluye 1, 3, 5 y 10 cuotas; el sitio muestra 1, 3 y 10.
+4. Duración exacta de la reserva (5 o 10 minutos) y cuándo empieza a correr.
+5. Datos personales y documentos que se exigirán, acceso permitido y plazo de conservación.
+6. Quién puede crear, editar, eliminar y asignar profesor a los bloques; el profesor debe poder ser opcional según el contexto.
+7. Qué ocurre cuando expira una reserva o falla una carga de documentos.
+
+FASES PROPUESTAS
+
+P0 - Cerrar reglas de negocio y acceso
+- Acordar respuestas a las preguntas anteriores.
+- Revisar el proyecto Supabase real: tablas, restricciones, RLS, roles y usuarios de prueba.
+- No copiar credenciales al repositorio ni a estos documentos.
+
+P1 - Diseñar y asegurar los datos
+- Definir tablas y relaciones mínimas para bloques, reservas y matrícula; incorporar estudiantes/apoderados solo según el alcance confirmado.
+- Definir estados claros de reserva e inscripción, junto con timestamps de creación y vencimiento.
+- Crear una operación atómica en base de datos para reservar si hay capacidad; respetar siempre el máximo del bloque.
+- Definir cómo se libera una reserva vencida incluso si no hay visitas a la aplicación.
+- Escribir y probar políticas RLS por rol. No confiar solo en controles de la interfaz.
+
+P2 - Implementar la experiencia de reserva
+- Mostrar bloques y disponibilidad real desde el servidor.
+- Crear la reserva temporal al momento acordado y presentar el vencimiento claramente.
+- Permitir completar los datos requeridos y subir documentos solo si se confirma que son necesarios; usar almacenamiento privado y permisos restringidos.
+- Confirmar la matrícula solo si la reserva sigue vigente; informar errores y permitir reintentar sin duplicar operaciones.
+
+P3 - Completar el panel administrativo
+- Permitir editar los bloques existentes.
+- Hacer que el profesor sea opcional si la regla institucional se mantiene.
+- Mostrar cupos confirmados y reservas activas/vencidas de forma diferenciada.
+- Gestionar estados de matrícula con permisos de administrador.
+
+P4 - Verificar y preparar despliegue
+- Probar simultaneidad por el último cupo, expiración, reintentos, carga fallida y permisos por rol.
+- Revisar la interfaz en móvil y validar los textos comerciales con la institución.
+- Actualizar README.md con configuración local, esquema/migraciones, roles y comandos.
+- Añadir pruebas y comandos de validación que cubran las operaciones implementadas.
+- Integrar Transbank/Webpay únicamente después de definir cómo se relacionan pago, reserva y confirmación de matrícula.
+
+CRITERIO PARA INICIAR P1
+No empezar a almacenar documentos ni cobrar hasta tener acordados los datos requeridos, la duración de reserva, los estados y las reglas de acceso.

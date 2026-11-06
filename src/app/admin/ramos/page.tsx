@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase'
 import { BookOpen, Users, Plus, Trash2, ShieldAlert, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -15,9 +15,57 @@ interface BloqueRamo {
   inscritos_count: number
 }
 
+interface OperationFeedback {
+  type: 'error' | 'success'
+  title: string
+  message: string
+  code?: string
+  details?: string
+  hint?: string
+}
+
+function getErrorField(error: unknown, field: string): string | undefined {
+  if (typeof error !== 'object' || error === null || !(field in error)) {
+    return undefined
+  }
+
+  const value = error[field as keyof typeof error]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getInsertErrorFeedback(error: unknown): OperationFeedback {
+  const code = getErrorField(error, 'code')
+  const message = getErrorField(error, 'message') ?? 'No se recibió un mensaje de error desde Supabase.'
+  const details = getErrorField(error, 'details')
+  const hint = getErrorField(error, 'hint')
+
+  let title = 'No se pudo crear el bloque'
+  let explanation = message
+
+  if (code === '42501') {
+    title = 'Supabase rechazó el permiso para crear el bloque'
+    explanation = 'Revisa los permisos INSERT y la política RLS de bloques_ramos para el usuario autenticado.'
+  } else if (code === '23502') {
+    title = 'Falta un dato obligatorio en la tabla'
+    explanation = 'La tabla exige un campo que el formulario no está enviando. Revisa las columnas NOT NULL de bloques_ramos.'
+  } else if (code === 'PGRST205' || code === '42P01') {
+    title = 'Supabase no encuentra la tabla bloques_ramos'
+    explanation = 'Confirma que la tabla exista en el esquema public y que la API de Supabase la tenga disponible.'
+  } else if (error instanceof TypeError || /failed to fetch|networkerror|fetch failed|load failed/i.test(message)) {
+    title = 'No se pudo conectar con Supabase'
+    explanation = 'Comprueba la conexión a internet y las variables de entorno de Supabase.'
+  }
+
+  return { type: 'error', title, message: explanation, code, details, hint }
+}
+
 export default function AdminRamosPage() {
   const [bloques, setBloques] = useState<BloqueRamo[]>([])
   const [loading, setLoading] = useState(true)
+  const [savingBlock, setSavingBlock] = useState(false)
+  const [blockFeedback, setBlockFeedback] = useState<OperationFeedback | null>(null)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   // Estados para el formulario de nuevo bloque
@@ -26,12 +74,9 @@ export default function AdminRamosPage() {
   const [horario, setHorario] = useState('Lunes 10:00 - 11:30')
   const [profesor, setProfesor] = useState('')
 
-  useEffect(() => {
-    fetchBloques()
-  }, [])
-
   const fetchBloques = async () => {
     setLoading(true)
+    const supabase = getSupabaseClient()
     const { data, error } = await supabase.from('bloques_ramos').select('*').order('nivel', { ascending: true })
     if (error) {
       console.error('Error al cargar bloques:', error)
@@ -41,33 +86,139 @@ export default function AdminRamosPage() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    let cancelled = false
+
+    const verifyAdmin = async () => {
+      try {
+        const supabase = getSupabaseClient()
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          console.error('No se pudo leer la sesión:', sessionError)
+          router.replace('/login')
+          return
+        }
+
+        if (!sessionData.session) {
+          router.replace('/login')
+          return
+        }
+
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !authData.user) {
+          if (authError) {
+            console.error('No se pudo verificar el usuario de la sesión:', authError)
+          }
+          router.replace('/login')
+          return
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', authData.user.id)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('No se pudo verificar el rol del usuario:', profileError)
+          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
+          if (signOutError) {
+            console.error('No se pudo limpiar la sesión sin perfil verificable:', signOutError)
+          }
+          router.replace('/login')
+          return
+        }
+
+        if (profile?.role !== 'admin') {
+          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
+          if (signOutError) {
+            console.error('No se pudo limpiar la sesión sin permisos de administrador:', signOutError)
+          }
+          router.replace('/login')
+          return
+        }
+
+        if (!cancelled) {
+          setIsAdmin(true)
+          await fetchBloques()
+        }
+      } catch (error) {
+        console.error('Error inesperado al verificar el acceso al panel:', error)
+        router.replace('/login')
+      } finally {
+        if (!cancelled) {
+          setAuthChecking(false)
+        }
+      }
+    }
+
+    void verifyAdmin()
+
+    return () => {
+      cancelled = true
+    }
+  }, [router])
+
   const handleCrearBloque = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!profesor) return alert('Debes indicar el nombre del profesor.')
+    if (!profesor.trim()) {
+      setBlockFeedback({
+        type: 'error',
+        title: 'Falta el nombre del profesor',
+        message: 'Completa ese campo antes de guardar el bloque.',
+      })
+      return
+    }
 
-    const { error } = await supabase.from('bloques_ramos').insert([
-      {
+    setSavingBlock(true)
+    setBlockFeedback(null)
+
+    try {
+      const supabase = getSupabaseClient()
+      const { error } = await supabase.from('bloques_ramos').insert({
         nivel,
         asignatura,
         horario,
-        profesor,
+        profesor: profesor.trim(),
         capacidad_maxima: 15,
-        inscritos_count: 0
-      }
-    ])
+        inscritos_count: 0,
+      })
 
-    if (error) {
-      alert('Hubo un error al crear el bloque.')
-      console.error(error)
-    } else {
+      if (error) {
+        const feedback = getInsertErrorFeedback(error)
+        console.error('Error al crear el bloque en Supabase:', {
+          code: feedback.code,
+          message: getErrorField(error, 'message'),
+          details: feedback.details,
+          hint: feedback.hint,
+          status: getErrorField(error, 'status'),
+        })
+        setBlockFeedback(feedback)
+        return
+      }
+
       setProfesor('')
-      fetchBloques()
+      setBlockFeedback({
+        type: 'success',
+        title: 'Bloque creado',
+        message: 'El bloque se guardó correctamente.',
+      })
+      await fetchBloques()
+    } catch (error) {
+      const feedback = getInsertErrorFeedback(error)
+      console.error('Error inesperado al crear el bloque:', error)
+      setBlockFeedback(feedback)
+    } finally {
+      setSavingBlock(false)
     }
   }
 
   const handleEliminarBloque = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este bloque horario?')) return
 
+    const supabase = getSupabaseClient()
     const { error } = await supabase.from('bloques_ramos').delete().eq('id', id)
     if (error) {
       alert('Error al eliminar el bloque.')
@@ -77,8 +228,26 @@ export default function AdminRamosPage() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    const supabase = getSupabaseClient()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Error al cerrar sesión:', error)
+      alert('No se pudo cerrar la sesión. Inténtalo nuevamente.')
+      return
+    }
     router.push('/login')
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#EAF2F8] text-[#667A8A] flex items-center justify-center text-sm">
+        Verificando acceso...
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return null
   }
 
   return (
@@ -162,10 +331,28 @@ export default function AdminRamosPage() {
               />
             </div>
 
-            <button type="submit" className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-sm cursor-pointer h-[38px] flex items-center justify-center gap-1">
-              <Plus className="w-4 h-4" /> Guardar Bloque
+            <button type="submit" disabled={savingBlock} className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-sm cursor-pointer h-[38px] flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Plus className="w-4 h-4" /> {savingBlock ? 'Guardando...' : 'Guardar Bloque'}
             </button>
           </form>
+
+          {blockFeedback && (
+            <div
+              role={blockFeedback.type === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
+              className={`rounded-xl border p-4 text-xs space-y-1 ${
+                blockFeedback.type === 'error'
+                  ? 'bg-[#E96A6A]/10 border-[#E96A6A]/30 text-[#9F3030]'
+                  : 'bg-[#71C997]/15 border-[#71C997]/40 text-[#1A2C42]'
+              }`}
+            >
+              <p className="font-bold">{blockFeedback.title}</p>
+              <p>{blockFeedback.message}</p>
+              {blockFeedback.code && <p>Código: <span className="font-mono">{blockFeedback.code}</span></p>}
+              {blockFeedback.details && <p>Detalle: {blockFeedback.details}</p>}
+              {blockFeedback.hint && <p>Sugerencia de Supabase: {blockFeedback.hint}</p>}
+            </div>
+          )}
         </section>
 
         {/* Listado / Tabla de Bloques Existentes */}
