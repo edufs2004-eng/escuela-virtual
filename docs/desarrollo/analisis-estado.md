@@ -15,7 +15,7 @@ La prioridad recomendada es cerrar las definiciones operativas de matrícula y p
 - **Sitio público:** una página de presentación con oferta, niveles, precios, contacto y enlaces entre secciones, en [`src/app/page.tsx`](../../src/app/page.tsx).
 - **Inicio de sesión:** autenticación con correo y contraseña de Supabase y consulta del rol en `profiles`, en [`src/app/login/page.tsx`](../../src/app/login/page.tsx).
 - **Acceso administrativo:** el panel verifica sesión y rol `admin` antes de mostrar la gestión de bloques, en [`src/app/admin/ramos/page.tsx`](../../src/app/admin/ramos/page.tsx).
-- **Gestión de bloques:** consulta, creación y eliminación de filas de `bloques_ramos`. Al crear, fija capacidad en 15 e inscritos en 0. El horario se selecciona desde el catálogo `horarios` y se guarda como su etiqueta en el campo textual `bloques_ramos.horario`; el profesor es opcional.
+- **Gestión de horarios y bloques:** el panel permite crear opciones en `horarios` seleccionando día y horas de inicio/término; normaliza esos valores como `Día HH:mm - HH:mm` y los guarda en `etiqueta`, sin solicitar ni mostrar `descripcion`. Los bloques se consultan, crean y eliminan en `bloques_ramos`; al crear, fija capacidad en 15 e inscritos en 0. El horario seleccionado se guarda como etiqueta en el campo textual `bloques_ramos.horario`; el profesor es opcional.
 - **Entrada pública a matrícula:** los CTA de admisión llevan a `/matricula`, donde se consultan bloques publicados y se puede preparar una selección visual de las cinco asignaturas obligatorias.
 - **Cliente de Supabase:** inicialización bajo demanda con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, en [`src/lib/supabase.ts`](../../src/lib/supabase.ts).
 - **Interfaz:** Next.js 16, React 19, TypeScript, Tailwind CSS 4 y Lucide React. Los comandos definidos son `dev`, `build` y `start`.
@@ -25,7 +25,7 @@ La prioridad recomendada es cerrar las definiciones operativas de matrícula y p
 - El formulario público de contacto es visual: no tiene envío, acción, nombres de campos ni confirmación de recepción.
 - La selección de `/matricula` no crea ni persiste una reserva. Los cupos que presenta son capacidad nominal menos inscritos confirmados y no descuentan reservas temporales.
 - No existe reserva temporal, contador TTL, vencimiento, liberación automática, confirmación de cupo ni control transaccional de concurrencia.
-- La etapa documental existe como paso visual vacío; no hay carga de documentos, datos de apoderado/alumno ni integración con Transbank/Webpay.
+- La etapa documental existe como paso visual vacío; no hay carga de documentos ni datos de apoderado/alumno. La pantalla de pago solo informa que no está disponible; no hay integración con Transbank/WebPay.
 - Los roles `docente` y `alumno` se reconocen al iniciar sesión, pero sus portales no están implementados.
 - El panel permite crear y eliminar bloques, pero no editarlos.
 - Las políticas del snapshot compartido permiten `ALL` a cualquier usuario autenticado sobre `bloques_ramos` y `horarios`; la comprobación de rol `admin` en el panel es de interfaz y no sustituye permisos de base de datos. La revisión de RLS/migraciones en Supabase corresponde al trabajo separado de preparación de backend.

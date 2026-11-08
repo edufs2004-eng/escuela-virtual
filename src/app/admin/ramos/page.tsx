@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getSupabaseClient } from '@/lib/supabase'
-import { BookOpen, Users, Plus, Trash2, ShieldAlert, LogOut } from 'lucide-react'
+import { BookOpen, Clock, Users, Plus, Trash2, ShieldAlert, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface BloqueRamo {
@@ -18,8 +18,17 @@ interface BloqueRamo {
 interface Horario {
   id: string
   etiqueta: string
-  descripcion: string | null
 }
+
+const diasSemana = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+]
 
 interface OperationFeedback {
   type: 'error' | 'success'
@@ -71,6 +80,11 @@ export default function AdminRamosPage() {
   const [loading, setLoading] = useState(true)
   const [horariosLoading, setHorariosLoading] = useState(true)
   const [horariosError, setHorariosError] = useState<string | null>(null)
+  const [horarioDia, setHorarioDia] = useState(diasSemana[0])
+  const [horarioInicio, setHorarioInicio] = useState('')
+  const [horarioFin, setHorarioFin] = useState('')
+  const [savingHorario, setSavingHorario] = useState(false)
+  const [horarioFeedback, setHorarioFeedback] = useState<OperationFeedback | null>(null)
   const [savingBlock, setSavingBlock] = useState(false)
   const [blockFeedback, setBlockFeedback] = useState<OperationFeedback | null>(null)
   const [authChecking, setAuthChecking] = useState(true)
@@ -102,7 +116,7 @@ export default function AdminRamosPage() {
     const supabase = getSupabaseClient()
     const { data, error } = await supabase
       .from('horarios')
-      .select('id, etiqueta, descripcion')
+      .select('id, etiqueta')
       .order('etiqueta', { ascending: true })
 
     if (error) {
@@ -247,6 +261,90 @@ export default function AdminRamosPage() {
     }
   }
 
+  const handleCrearHorario = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const etiqueta = `${horarioDia} ${horarioInicio} - ${horarioFin}`
+    const inicioMinutos = horarioInicio.split(':').reduce((hours, part, index) => (
+      index === 0 ? Number(part) * 60 : hours + Number(part)
+    ), 0)
+    const finMinutos = horarioFin.split(':').reduce((hours, part, index) => (
+      index === 0 ? Number(part) * 60 : hours + Number(part)
+    ), 0)
+
+    if (!horarioInicio || !horarioFin) {
+      setHorarioFeedback({
+        type: 'error',
+        title: 'Completa el horario',
+        message: 'Selecciona la hora de inicio y la hora de término.',
+      })
+      return
+    }
+
+    if (finMinutos <= inicioMinutos) {
+      setHorarioFeedback({
+        type: 'error',
+        title: 'El horario no es válido',
+        message: 'La hora de término debe ser posterior a la hora de inicio.',
+      })
+      return
+    }
+
+    if (horarios.some((horario) => horario.etiqueta.localeCompare(etiqueta, undefined, { sensitivity: 'base' }) === 0)) {
+      setHorarioFeedback({
+        type: 'error',
+        title: 'El horario ya existe',
+        message: 'El catálogo ya contiene ese día y rango de horas.',
+      })
+      return
+    }
+
+    setSavingHorario(true)
+    setHorarioFeedback(null)
+
+    try {
+      const supabase = getSupabaseClient()
+      const { error } = await supabase.from('horarios').insert({
+        etiqueta,
+      })
+
+      if (error) {
+        const code = getErrorField(error, 'code')
+        const message = getErrorField(error, 'message') ?? 'No se recibió un mensaje de error desde Supabase.'
+        console.error('Error al crear la opción en el catálogo de horarios:', error)
+        setHorarioFeedback({
+          type: 'error',
+          title: code === '42501' ? 'Supabase rechazó el permiso para crear el horario' : 'No se pudo crear el horario',
+          message: code === '42501'
+            ? 'La cuenta debe tener permiso para insertar opciones en la tabla horarios.'
+            : message,
+          code,
+          details: getErrorField(error, 'details'),
+          hint: getErrorField(error, 'hint'),
+        })
+        return
+      }
+
+      setHorarioInicio('')
+      setHorarioFin('')
+      setHorarioFeedback({
+        type: 'success',
+        title: 'Horario agregado al catálogo',
+        message: 'Ya puedes seleccionarlo al crear un bloque de ramo.',
+      })
+      await fetchHorarios()
+    } catch (error) {
+      console.error('Error inesperado al crear la opción en el catálogo de horarios:', error)
+      setHorarioFeedback({
+        type: 'error',
+        title: 'No se pudo crear el horario',
+        message: error instanceof Error ? error.message : 'Ocurrió un error inesperado al guardar el horario.',
+      })
+    } finally {
+      setSavingHorario(false)
+    }
+  }
+
   const handleEliminarBloque = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este bloque horario?')) return
 
@@ -308,6 +406,111 @@ export default function AdminRamosPage() {
 
       {/* Contenido Principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full space-y-10">
+
+        <section className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-lg font-bold text-[#1A2C42] flex items-center gap-2">
+              <Clock className="w-5 h-5 text-[#5B9CD8]" /> Catálogo de Horarios
+            </h2>
+            <p className="mt-1 text-xs text-[#667A8A]">
+              Crea las opciones disponibles. Después podrás asignarlas a los bloques de ramos.
+            </p>
+          </div>
+
+          <form onSubmit={handleCrearHorario} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+            <div>
+              <label htmlFor="horario-dia" className="mb-1 block text-xs font-bold text-[#1A2C42]">
+                Día
+              </label>
+              <select
+                id="horario-dia"
+                value={horarioDia}
+                onChange={(event) => setHorarioDia(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-[#EAF2F8] p-2.5 text-xs"
+                required
+              >
+                {diasSemana.map((dia) => <option key={dia} value={dia}>{dia}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="horario-inicio" className="mb-1 block text-xs font-bold text-[#1A2C42]">
+                Hora de inicio
+              </label>
+              <input
+                id="horario-inicio"
+                type="time"
+                step={60}
+                value={horarioInicio}
+                onChange={(event) => setHorarioInicio(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-[#EAF2F8] p-2.5 text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="horario-fin" className="mb-1 block text-xs font-bold text-[#1A2C42]">
+                Hora de término
+              </label>
+              <input
+                id="horario-fin"
+                type="time"
+                step={60}
+                value={horarioFin}
+                onChange={(event) => setHorarioFin(event.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-[#EAF2F8] p-2.5 text-xs"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingHorario || horariosLoading || horariosError !== null}
+              className="flex h-[38px] items-center justify-center gap-1 rounded-xl bg-[#5B9CD8] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#4B8ECB] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {savingHorario ? 'Guardando...' : 'Agregar horario'}
+            </button>
+            {horarioInicio && horarioFin && (
+              <p className="text-xs text-[#667A8A] sm:col-span-2 lg:col-span-4">
+                Se guardará como: <strong className="text-[#1A2C42]">{horarioDia} {horarioInicio} - {horarioFin}</strong>
+              </p>
+            )}
+          </form>
+
+          {horarioFeedback && (
+            <div
+              role={horarioFeedback.type === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
+              className={`space-y-1 rounded-xl border p-4 text-xs ${
+                horarioFeedback.type === 'error'
+                  ? 'border-[#E96A6A]/30 bg-[#E96A6A]/10 text-[#9F3030]'
+                  : 'border-[#71C997]/40 bg-[#71C997]/15 text-[#1A2C42]'
+              }`}
+            >
+              <p className="font-bold">{horarioFeedback.title}</p>
+              <p>{horarioFeedback.message}</p>
+              {horarioFeedback.code && <p>Código: <span className="font-mono">{horarioFeedback.code}</span></p>}
+              {horarioFeedback.details && <p>Detalle: {horarioFeedback.details}</p>}
+              {horarioFeedback.hint && <p>Sugerencia de Supabase: {horarioFeedback.hint}</p>}
+            </div>
+          )}
+
+          {horariosLoading ? (
+            <p role="status" className="text-xs text-[#667A8A]">Cargando catálogo...</p>
+          ) : horariosError ? (
+            <p role="alert" className="text-xs text-[#9F3030]">{horariosError}</p>
+          ) : horarios.length === 0 ? (
+            <p className="rounded-xl bg-[#F8FBFD] p-4 text-xs text-[#667A8A]">
+              Aún no hay opciones en el catálogo. Agrega un horario para poder crear bloques de ramos.
+            </p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {horarios.map((horario) => (
+                <li key={horario.id} className="rounded-xl border border-slate-200 bg-[#F8FBFD] p-4">
+                  <p className="text-sm font-bold text-[#1A2C42]">{horario.etiqueta}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         
         {/* Formulario para Crear Nuevo Bloque */}
         <section className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
@@ -354,7 +557,6 @@ export default function AdminRamosPage() {
                 {horarios.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.etiqueta}
-                    {option.descripcion ? ` — ${option.descripcion}` : ''}
                   </option>
                 ))}
               </select>

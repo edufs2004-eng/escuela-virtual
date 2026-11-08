@@ -30,7 +30,6 @@ interface OpcionHorario {
   horario: string
   bloques: BloqueRamo[]
   cuposDisponibles: number
-  capacidadTotal: number
 }
 
 const subjects = ['Matemáticas', 'Lenguaje', 'Inglés', 'Ciencias', 'Historia']
@@ -45,7 +44,7 @@ export default function MatriculaPage() {
   const [bloques, setBloques] = useState<BloqueRamo[]>([])
   const [nivel, setNivel] = useState('')
   const [selecciones, setSelecciones] = useState<Record<string, string>>({})
-  const [etapa, setEtapa] = useState<'seleccion' | 'documentos'>('seleccion')
+  const [etapa, setEtapa] = useState<'seleccion' | 'documentos' | 'pago'>('seleccion')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -106,7 +105,6 @@ export default function MatriculaPage() {
       if (existing) {
         existing.bloques.push(block)
         existing.cuposDisponibles += getAvailability(block)
-        existing.capacidadTotal += block.capacidad_maxima ?? 15
       } else {
         groups.set(key, {
           key,
@@ -114,7 +112,6 @@ export default function MatriculaPage() {
           horario: block.horario,
           bloques: [block],
           cuposDisponibles: getAvailability(block),
-          capacidadTotal: block.capacidad_maxima ?? 15,
         })
       }
     }
@@ -141,12 +138,17 @@ export default function MatriculaPage() {
     setEtapa('documentos')
   }
 
+  const continuarAPago = () => {
+    setDocumentosContinuados(true)
+    setEtapa('pago')
+  }
+
   const cancelarProceso = () => {
-    if (!window.confirm('¿Quieres cancelar y borrar la selección actual? Todavía no hay una reserva creada.')) return
+    if (!window.confirm('¿Quieres cancelar y borrar la selección actual? Todavía no hay una reserva ni un pago iniciado.')) return
     setSelecciones({})
     setDocumentosContinuados(false)
     setEtapa('seleccion')
-    setNotice('Se borró la selección de esta página. No había ninguna reserva activa que cancelar.')
+    setNotice('Se borró la selección de esta página. No había ninguna reserva ni pago activo que cancelar.')
   }
 
   return (
@@ -167,12 +169,18 @@ export default function MatriculaPage() {
               Matrícula 2027
             </span>
             <h1 className="mt-5 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              {etapa === 'seleccion' ? 'Selecciona los horarios de tu estudiante' : 'Antecedentes y documentos'}
+              {etapa === 'seleccion'
+                ? 'Selecciona los horarios de tu estudiante'
+                : etapa === 'documentos'
+                  ? 'Antecedentes y documentos'
+                  : 'Confirmación y pago'}
             </h1>
             <p className="mt-4 text-sm leading-6 text-[#667A8A] sm:text-base">
               {etapa === 'seleccion'
                 ? 'Elige un horario para cada asignatura obligatoria. Las secciones equivalentes del mismo ramo y horario se muestran agrupadas.'
-                : 'Esta etapa está preparada para continuar sin adjuntar archivos. La carga se habilitará cuando se definan los requisitos documentales.'}
+                : etapa === 'documentos'
+                  ? 'Esta etapa está preparada para continuar sin adjuntar archivos. La carga se habilitará cuando se definan los requisitos documentales.'
+                  : 'La confirmación de matrícula y el pago estarán disponibles cuando la verificación segura esté conectada.'}
             </p>
             <div
               role="status"
@@ -206,6 +214,63 @@ export default function MatriculaPage() {
               <p className="mt-3 font-semibold">Aún no hay horarios publicados.</p>
               <p className="mt-1 text-sm text-[#667A8A]">Vuelve a revisar más adelante.</p>
             </div>
+          ) : etapa === 'pago' ? (
+            <section className="mx-auto mt-10 max-w-3xl" aria-labelledby="pago-title">
+              <div className="rounded-2xl border border-slate-200 bg-[#F8FBFD] p-6 sm:p-8">
+                <div className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#5B9CD8]/10 text-[#4B8ECB]">
+                    <Clock3 className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 id="pago-title" className="text-lg font-bold">Pago aún no disponible</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667A8A]">
+                      No se inició una transacción con Transbank. Esta página no confirma pagos ni matrículas.
+                      Cuando se habilite, el estado se verificará con el proveedor desde el servidor.
+                    </p>
+                  </div>
+                </div>
+
+                <div role="status" className="mt-6 rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
+                  Tu selección solo se conserva en esta página; no hay una reserva vigente ni un temporizador de pago.
+                </div>
+
+                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setEtapa('documentos')}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-[#1A2C42] transition-colors hover:bg-slate-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    Volver a documentos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelarProceso}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E96A6A]/40 px-5 py-3 text-sm font-bold text-[#9F3030] transition-colors hover:bg-[#E96A6A]/10"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    Cancelar selección
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 p-5">
+                <h3 className="font-bold">Resumen de horarios elegidos</h3>
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {subjects.map((subject) => {
+                    const selectedKey = selecciones[subject]
+                    const selectedOption = (opcionesPorAsignatura[subject] ?? [])
+                      .find((option) => option.key === selectedKey)
+                    return (
+                      <li key={subject} className="rounded-lg bg-[#F8FBFD] p-3 text-sm">
+                        <span className="font-semibold">{subject}:</span>{' '}
+                        {selectedOption?.horario ?? 'Sin selección'}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </section>
           ) : etapa === 'documentos' ? (
             <section className="mx-auto mt-10 max-w-3xl" aria-labelledby="documentos-title">
               <div className="rounded-2xl border border-slate-200 bg-[#F8FBFD] p-6 sm:p-8">
@@ -257,11 +322,10 @@ export default function MatriculaPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDocumentosContinuados(true)}
-                      disabled={documentosContinuados}
+                      onClick={continuarAPago}
                       className="rounded-xl bg-[#5B9CD8] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4B8ECB] disabled:cursor-default disabled:opacity-60"
                     >
-                      Continuar sin documentos
+                      Continuar a pago
                     </button>
                   </div>
                 </div>
@@ -341,7 +405,7 @@ export default function MatriculaPage() {
                                 <span className="min-w-0 flex-1">
                                   <span className="block font-semibold">{option.horario}</span>
                                   <span className={`mt-2 block text-xs font-semibold ${full ? 'text-[#9F3030]' : 'text-[#3D7A56]'}`}>
-                                    Libres según inscritos: {option.cuposDisponibles} de {option.capacidadTotal}
+                                    Quedan {option.cuposDisponibles} cupos libres
                                   </span>
                                   <span className="mt-1 block text-xs text-[#667A8A]">
                                     No considera reservas temporales y no garantiza disponibilidad.
