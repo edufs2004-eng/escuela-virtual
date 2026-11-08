@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Escuela Virtual Chile",
+  title: "Escencia | Escuela Virtual Chile",
   description: "Educación virtual con clases en vivo y acompañamiento docente.",
 };
 

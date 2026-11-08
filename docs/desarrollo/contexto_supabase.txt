@@ -1,0 +1,137 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.bloques_ramos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nivel text NOT NULL,
+  asignatura text NOT NULL,
+  horario text NOT NULL,
+  profesor text,
+  capacidad_maxima integer DEFAULT 15,
+  inscritos_count integer DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT bloques_ramos_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  email text NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'docente'::text, 'alumno'::text])),
+  full_name text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.horarios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  etiqueta text NOT NULL,
+  descripcion text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT horarios_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.matriculas_temporales (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  bloque_horario_id uuid,
+  nivel text NOT NULL,
+  asignatura text NOT NULL,
+  rut_apoderado text,
+  nombre_apoderado text,
+  email_apoderado text,
+  rut_alumno text,
+  nombre_alumno text,
+  documentos_urls jsonb DEFAULT '[]'::jsonb,
+  estado text DEFAULT 'pendiente_pago'::text CHECK (estado = ANY (ARRAY['pendiente_pago'::text, 'pagado'::text, 'expirado'::text, 'cancelado'::text])),
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '00:10:00'::interval),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT matriculas_temporales_pkey PRIMARY KEY (id),
+  CONSTRAINT matriculas_temporales_bloque_horario_id_fkey FOREIGN KEY (bloque_horario_id) REFERENCES public.horarios(id)
+);
+
+
+## Table `bloques_ramos`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `nivel` | `text` |  |
+| `asignatura` | `text` |  |
+| `horario` | `text` |  |
+| `profesor` | `text` |  Nullable |
+| `capacidad_maxima` | `int4` |  Nullable |
+| `inscritos_count` | `int4` |  Nullable |
+| `created_at` | `timestamptz` |  |
+
+## Table `profiles`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `email` | `text` |  |
+| `role` | `text` |  |
+| `full_name` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+
+## Table `horarios`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `etiqueta` | `text` |  |
+| `descripcion` | `text` |  Nullable |
+| `created_at` | `timestamptz` |  |
+
+## Table `matriculas_temporales`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `bloque_horario_id` | `uuid` |  Nullable |
+| `nivel` | `text` |  |
+| `asignatura` | `text` |  |
+| `rut_apoderado` | `text` |  Nullable |
+| `nombre_apoderado` | `text` |  Nullable |
+| `email_apoderado` | `text` |  Nullable |
+| `rut_alumno` | `text` |  Nullable |
+| `nombre_alumno` | `text` |  Nullable |
+| `documentos_urls` | `jsonb` |  Nullable |
+| `estado` | `text` |  Nullable |
+| `expires_at` | `timestamptz` |  |
+| `created_at` | `timestamptz` |  |
+
+## RLS Policies
+
+### `profiles`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Permitir lectura de perfiles` | SELECT | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | — |
+
+### `bloques_ramos`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Permitir gestion a usuarios autenticados` | ALL | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | `(auth.role() = 'authenticated'::text)` |
+| `Permitir lectura de bloques` | SELECT | public | PERMISSIVE | `true` | — |
+
+### `horarios`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Gestion admin horarios` | ALL | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | `(auth.role() = 'authenticated'::text)` |
+| `Lectura libre horarios` | SELECT | public | PERMISSIVE | `true` | — |
+
+
+| esquema | tabla         | nombre_politica                          | tipo       | roles_afectados | operacion | definicion_using                      | definicion_with_check                 |
+| ------- | ------------- | ---------------------------------------- | ---------- | --------------- | --------- | ------------------------------------- | ------------------------------------- |
+| public  | profiles      | Permitir lectura de perfiles             | PERMISSIVE | {public}        | SELECT    | (auth.role() = 'authenticated'::text) | null                                  |
+| public  | bloques_ramos | Permitir gestion a usuarios autenticados | PERMISSIVE | {public}        | ALL       | (auth.role() = 'authenticated'::text) | (auth.role() = 'authenticated'::text) |
+| public  | bloques_ramos | Permitir lectura de bloques              | PERMISSIVE | {public}        | SELECT    | true                                  | null                                  |
+| public  | horarios      | Gestion admin horarios                   | PERMISSIVE | {public}        | ALL       | (auth.role() = 'authenticated'::text) | (auth.role() = 'authenticated'::text) |
+| public  | horarios      | Lectura libre horarios                   | PERMISSIVE | {public}        | SELECT    | true                                  | null                                  |

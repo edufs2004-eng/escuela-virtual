@@ -13,7 +13,8 @@ import {
   BookOpenCheck, 
   Languages, 
   GraduationCap, 
-  Smile 
+  Smile,
+  MessageCircle,
 } from 'lucide-react'
 
 export default function Home() {
@@ -22,9 +23,9 @@ export default function Home() {
       {/* Banner Superior Promocional */}
       <div className="bg-[#4B8ECB] text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 shadow-inner">
         <span className="bg-[#F5D372] text-[#1A2C42] px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide animate-pulse">
-          Proceso 2027
+          Admisión 2027
         </span>
-        <span>Admisión Abierta para 7.º Básico a 4.º Medio — Reserva tu cupo anticipado</span>
+        <span>Conoce el proceso de matrícula y selección de horarios</span>
       </div>
 
       {/* Header / Navegación */}
@@ -36,7 +37,7 @@ export default function Home() {
             <div className="relative w-11 h-11 bg-[#5B9CD8]/10 rounded-xl flex items-center justify-center overflow-hidden border border-[#5B9CD8]/30 shadow-xs">
               <Image 
                 src={logo}
-                alt="Logo Escuela Virtual Lila Castro" 
+                alt="Logo Escuela Virtual Escencia"
                 width={44} 
                 height={44} 
                 className="object-contain p-1"
@@ -45,7 +46,7 @@ export default function Home() {
             </div>
             <div>
               <span className="font-bold text-lg tracking-tight text-[#1A2C42] block group-hover:text-[#4B8ECB] transition-colors">
-                Escuela Virtual Lila Castro
+                Escuela Virtual Escencia
               </span>
               <span className="text-[10px] uppercase tracking-wider text-[#667A8A] font-semibold block">
                 Educación Virtual Chile
@@ -67,12 +68,12 @@ export default function Home() {
             <Link href="/login" className="text-xs font-bold text-[#667A8A] hover:text-[#4B8ECB] transition-colors">
               Ingresar
             </Link>
-            <a 
-              href="#contacto" 
+            <Link
+              href="/matricula"
               className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all inline-block"
             >
-              Postular Ahora
-            </a>
+              Matricúlate aquí
+            </Link>
           </div>
         </div>
       </header>
@@ -94,12 +95,12 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-            <a 
-              href="#contacto" 
+            <Link
+              href="/matricula"
               className="bg-[#F5D372] hover:bg-[#eac459] text-[#1A2C42] font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
             >
-              Iniciar Postulación <ChevronRight className="w-5 h-5" />
-            </a>
+              Selecciona tu horario <ChevronRight className="w-5 h-5" />
+            </Link>
             <a 
               href="#oferta" 
               className="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-semibold px-7 py-3.5 rounded-xl transition-all hover:-translate-y-0.5"
@@ -165,7 +166,7 @@ export default function Home() {
       <section id="propuesta" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
           <span className="text-[#4B8ECB] font-bold text-xs uppercase tracking-widest">Nuestra Propuesta</span>
-          <h2 className="text-3xl font-bold text-[#1A2C42]">¿Por qué elegir la Escuela Virtual Lila Castro?</h2>
+          <h2 className="text-3xl font-bold text-[#1A2C42]">¿Por qué elegir la Escuela Virtual Escencia?</h2>
           <p className="text-[#667A8A]">Combinamos la flexibilidad del entorno digital con la calidez y estructura del acompañamiento pedagógico humano.</p>
         </div>
 
@@ -331,12 +332,12 @@ export default function Home() {
               </ul>
             </div>
 
-            <a 
-              href="#contacto" 
+            <Link
+              href="/matricula"
               className="block text-center bg-[#F5D372] hover:bg-[#eac459] text-[#1A2C42] font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95"
             >
-              Solicitar Reserva de Cupo
-            </a>
+              Iniciar matrícula
+            </Link>
           </div>
         </div>
       </section>
@@ -346,9 +347,19 @@ export default function Home() {
         <div className="max-w-3xl mx-auto text-center space-y-8">
           <div className="space-y-3">
             <span className="text-[#71C997] font-bold text-xs uppercase tracking-widest">Contacto Directo</span>
-            <h2 className="text-3xl font-bold">¿Tienes dudas o quieres postular a la Escuela Virtual Lila Castro?</h2>
+            <h2 className="text-3xl font-bold">¿Tienes dudas sobre la Escuela Virtual Escencia?</h2>
             <p className="text-slate-300 text-sm">Déjanos tus datos y nuestro equipo administrativo se pondrá en contacto contigo a la brevedad.</p>
           </div>
+
+          <button
+            type="button"
+            disabled
+            aria-label="WhatsApp no disponible; falta el enlace oficial"
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-400 opacity-70"
+          >
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            WhatsApp · No disponible por ahora
+          </button>
 
           <form className="bg-white text-[#1A2C42] p-8 rounded-3xl shadow-xl text-left space-y-5 border border-slate-200">
             <div className="grid md:grid-cols-2 gap-5">
@@ -415,7 +426,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-[#1A2C42] border-t border-slate-800 text-[#667A8A] py-8 px-4 text-center text-xs">
-        <p>© 2027 Escuela Virtual Lila Castro. Todos los derechos reservados.</p>
+        <p>© 2027 Escuela Virtual Escencia. Todos los derechos reservados.</p>
       </footer>
     </div>
   )

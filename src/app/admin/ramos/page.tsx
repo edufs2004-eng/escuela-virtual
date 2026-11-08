@@ -10,9 +10,15 @@ interface BloqueRamo {
   nivel: string
   asignatura: string
   horario: string
-  profesor: string
+  profesor: string | null
   capacidad_maxima: number
   inscritos_count: number
+}
+
+interface Horario {
+  id: string
+  etiqueta: string
+  descripcion: string | null
 }
 
 interface OperationFeedback {
@@ -61,7 +67,10 @@ function getInsertErrorFeedback(error: unknown): OperationFeedback {
 
 export default function AdminRamosPage() {
   const [bloques, setBloques] = useState<BloqueRamo[]>([])
+  const [horarios, setHorarios] = useState<Horario[]>([])
   const [loading, setLoading] = useState(true)
+  const [horariosLoading, setHorariosLoading] = useState(true)
+  const [horariosError, setHorariosError] = useState<string | null>(null)
   const [savingBlock, setSavingBlock] = useState(false)
   const [blockFeedback, setBlockFeedback] = useState<OperationFeedback | null>(null)
   const [authChecking, setAuthChecking] = useState(true)
@@ -71,7 +80,7 @@ export default function AdminRamosPage() {
   // Estados para el formulario de nuevo bloque
   const [nivel, setNivel] = useState('1.º Medio')
   const [asignatura, setAsignatura] = useState('Matemáticas')
-  const [horario, setHorario] = useState('Lunes 10:00 - 11:30')
+  const [horarioId, setHorarioId] = useState('')
   const [profesor, setProfesor] = useState('')
 
   const fetchBloques = async () => {
@@ -84,6 +93,27 @@ export default function AdminRamosPage() {
       setBloques(data || [])
     }
     setLoading(false)
+  }
+
+  const fetchHorarios = async () => {
+    setHorariosLoading(true)
+    setHorariosError(null)
+
+    const supabase = getSupabaseClient()
+    const { data, error } = await supabase
+      .from('horarios')
+      .select('id, etiqueta, descripcion')
+      .order('etiqueta', { ascending: true })
+
+    if (error) {
+      console.error('Error al cargar el catálogo de horarios:', error)
+      setHorarios([])
+      setHorariosError('No se pudo cargar el catálogo de horarios. Intenta actualizar el panel.')
+    } else {
+      setHorarios(data ?? [])
+    }
+
+    setHorariosLoading(false)
   }
 
   useEffect(() => {
@@ -142,7 +172,7 @@ export default function AdminRamosPage() {
 
         if (!cancelled) {
           setIsAdmin(true)
-          await fetchBloques()
+          await Promise.all([fetchBloques(), fetchHorarios()])
         }
       } catch (error) {
         console.error('Error inesperado al verificar el acceso al panel:', error)
@@ -163,11 +193,13 @@ export default function AdminRamosPage() {
 
   const handleCrearBloque = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!profesor.trim()) {
+
+    const selectedHorario = horarios.find((option) => option.id === horarioId)
+    if (!selectedHorario) {
       setBlockFeedback({
         type: 'error',
-        title: 'Falta el nombre del profesor',
-        message: 'Completa ese campo antes de guardar el bloque.',
+        title: 'Selecciona un horario disponible',
+        message: 'El horario debe elegirse desde el catálogo configurado.',
       })
       return
     }
@@ -180,8 +212,8 @@ export default function AdminRamosPage() {
       const { error } = await supabase.from('bloques_ramos').insert({
         nivel,
         asignatura,
-        horario,
-        profesor: profesor.trim(),
+        horario: selectedHorario.etiqueta,
+        profesor: profesor.trim() || null,
         capacidad_maxima: 15,
         inscritos_count: 0,
       })
@@ -309,29 +341,44 @@ export default function AdminRamosPage() {
 
             <div>
               <label className="block text-xs font-bold text-[#1A2C42] mb-1">Horario</label>
-              <input 
-                type="text" 
-                value={horario} 
-                onChange={(e) => setHorario(e.target.value)} 
-                className="w-full bg-[#EAF2F8] border border-slate-300 rounded-xl p-2.5 text-xs" 
-                placeholder="Ej. Martes 09:00 - 10:30" 
-                required 
-              />
+              <select
+                value={horarioId}
+                onChange={(e) => setHorarioId(e.target.value)}
+                className="w-full bg-[#EAF2F8] border border-slate-300 rounded-xl p-2.5 text-xs"
+                required
+                disabled={horariosLoading || horariosError !== null || horarios.length === 0}
+              >
+                <option value="">
+                  {horariosLoading ? 'Cargando horarios...' : 'Selecciona un horario'}
+                </option>
+                {horarios.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.etiqueta}
+                    {option.descripcion ? ` — ${option.descripcion}` : ''}
+                  </option>
+                ))}
+              </select>
+              {horariosError ? (
+                <p role="alert" className="mt-2 text-xs text-[#9F3030]">{horariosError}</p>
+              ) : !horariosLoading && horarios.length === 0 ? (
+                <p className="mt-2 text-xs text-[#667A8A]">
+                  No hay horarios disponibles en el catálogo.
+                </p>
+              ) : null}
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#1A2C42] mb-1">Profesor a Cargo</label>
+              <label className="block text-xs font-bold text-[#1A2C42] mb-1">Profesor a Cargo (opcional)</label>
               <input 
                 type="text" 
                 value={profesor} 
                 onChange={(e) => setProfesor(e.target.value)} 
                 className="w-full bg-[#EAF2F8] border border-slate-300 rounded-xl p-2.5 text-xs" 
                 placeholder="Ej. Prof. Carlos Soto" 
-                required 
               />
             </div>
 
-            <button type="submit" disabled={savingBlock} className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-sm cursor-pointer h-[38px] flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="submit" disabled={savingBlock || horariosLoading || horariosError !== null || horarios.length === 0} className="bg-[#5B9CD8] hover:bg-[#4B8ECB] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-sm cursor-pointer h-[38px] flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
               <Plus className="w-4 h-4" /> {savingBlock ? 'Guardando...' : 'Guardar Bloque'}
             </button>
           </form>
@@ -390,7 +437,7 @@ export default function AdminRamosPage() {
                       <td className="p-4 pl-6 font-bold text-[#1A2C42]">{b.nivel}</td>
                       <td className="p-4 font-semibold text-[#1A2C42]">{b.asignatura}</td>
                       <td className="p-4">{b.horario}</td>
-                      <td className="p-4">{b.profesor}</td>
+                      <td className="p-4">{b.profesor || 'Sin asignar'}</td>
                       <td className="p-4 text-center">
                         <span className={`px-2.5 py-1 rounded-full font-bold ${
                           b.inscritos_count >= b.capacidad_maxima 
