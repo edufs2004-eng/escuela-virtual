@@ -7,8 +7,10 @@ import {
   BookOpenCheck,
   CheckCircle2,
   Clock3,
+  FileText,
   RefreshCw,
   ShieldAlert,
+  X,
 } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase'
 
@@ -43,9 +45,11 @@ export default function MatriculaPage() {
   const [bloques, setBloques] = useState<BloqueRamo[]>([])
   const [nivel, setNivel] = useState('')
   const [selecciones, setSelecciones] = useState<Record<string, string>>({})
+  const [etapa, setEtapa] = useState<'seleccion' | 'documentos'>('seleccion')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [documentosContinuados, setDocumentosContinuados] = useState(false)
 
   const cargarBloques = useCallback(async () => {
     setLoading(true)
@@ -72,6 +76,8 @@ export default function MatriculaPage() {
         ? current
         : publishedBlocks[0]?.nivel ?? '')
       setSelecciones({})
+      setEtapa('seleccion')
+      setDocumentosContinuados(false)
     } catch (loadError) {
       console.error('Error inesperado al cargar la oferta de horarios:', loadError)
       setError('No pudimos conectar con la oferta de horarios. Intenta nuevamente.')
@@ -130,7 +136,17 @@ export default function MatriculaPage() {
 
   const confirmarSeleccion = () => {
     if (!seleccionCompleta) return
-    setNotice('Tu selección está lista para revisar, pero todavía no se ha creado una reserva ni se han apartado cupos.')
+    setNotice(null)
+    setDocumentosContinuados(false)
+    setEtapa('documentos')
+  }
+
+  const cancelarProceso = () => {
+    if (!window.confirm('¿Quieres cancelar y borrar la selección actual? Todavía no hay una reserva creada.')) return
+    setSelecciones({})
+    setDocumentosContinuados(false)
+    setEtapa('seleccion')
+    setNotice('Se borró la selección de esta página. No había ninguna reserva activa que cancelar.')
   }
 
   return (
@@ -151,11 +167,12 @@ export default function MatriculaPage() {
               Matrícula 2027
             </span>
             <h1 className="mt-5 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Selecciona los horarios de tu estudiante
+              {etapa === 'seleccion' ? 'Selecciona los horarios de tu estudiante' : 'Antecedentes y documentos'}
             </h1>
             <p className="mt-4 text-sm leading-6 text-[#667A8A] sm:text-base">
-              Elige un horario para cada asignatura obligatoria. Las secciones equivalentes
-              del mismo ramo y horario se muestran agrupadas.
+              {etapa === 'seleccion'
+                ? 'Elige un horario para cada asignatura obligatoria. Las secciones equivalentes del mismo ramo y horario se muestran agrupadas.'
+                : 'Esta etapa está preparada para continuar sin adjuntar archivos. La carga se habilitará cuando se definan los requisitos documentales.'}
             </p>
             <div
               role="status"
@@ -189,6 +206,84 @@ export default function MatriculaPage() {
               <p className="mt-3 font-semibold">Aún no hay horarios publicados.</p>
               <p className="mt-1 text-sm text-[#667A8A]">Vuelve a revisar más adelante.</p>
             </div>
+          ) : etapa === 'documentos' ? (
+            <section className="mx-auto mt-10 max-w-3xl" aria-labelledby="documentos-title">
+              <div className="rounded-2xl border border-slate-200 bg-[#F8FBFD] p-6 sm:p-8">
+                <div className="flex items-start gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#5B9CD8]/10 text-[#4B8ECB]">
+                    <FileText className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2 id="documentos-title" className="text-lg font-bold">Etapa documental</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667A8A]">
+                      Por ahora no se solicitan documentos. No adjuntes ni envíes archivos en esta etapa.
+                      Podrás continuar sin documentos cuando el flujo de matrícula esté conectado.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
+                  La selección de horarios se conserva mientras permanezcas en esta página.
+                  Aún no se ha creado una reserva, no hay temporizador y los cupos no están apartados.
+                </div>
+
+                {documentosContinuados && (
+                  <p role="status" className="mt-4 rounded-xl border border-[#5B9CD8]/30 bg-[#5B9CD8]/10 p-4 text-sm">
+                    Etapa documental completada en esta vista. La selección no se guardó en el servidor
+                    y el pago todavía no está habilitado.
+                  </p>
+                )}
+
+                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentosContinuados(false)
+                      setEtapa('seleccion')
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-[#1A2C42] transition-colors hover:bg-slate-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    Volver a horarios
+                  </button>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={cancelarProceso}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E96A6A]/40 px-5 py-3 text-sm font-bold text-[#9F3030] transition-colors hover:bg-[#E96A6A]/10"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDocumentosContinuados(true)}
+                      disabled={documentosContinuados}
+                      className="rounded-xl bg-[#5B9CD8] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4B8ECB] disabled:cursor-default disabled:opacity-60"
+                    >
+                      Continuar sin documentos
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 p-5">
+                <h3 className="font-bold">Resumen de horarios elegidos</h3>
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {subjects.map((subject) => {
+                    const selectedKey = selecciones[subject]
+                    const selectedOption = (opcionesPorAsignatura[subject] ?? [])
+                      .find((option) => option.key === selectedKey)
+                    return (
+                      <li key={subject} className="rounded-lg bg-[#F8FBFD] p-3 text-sm">
+                        <span className="font-semibold">{subject}:</span>{' '}
+                        {selectedOption?.horario ?? 'Sin selección'}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </section>
           ) : (
             <>
               <div className="mx-auto mt-10 max-w-sm">
@@ -281,8 +376,26 @@ export default function MatriculaPage() {
                     Revisar selección
                   </button>
                 </div>
+                <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                  <Link
+                    href="/"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-[#1A2C42] transition-colors hover:bg-slate-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    Volver al inicio
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={cancelarProceso}
+                    disabled={Object.keys(selecciones).length === 0}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E96A6A]/40 px-5 py-3 text-sm font-bold text-[#9F3030] transition-colors hover:bg-[#E96A6A]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    Cancelar selección
+                  </button>
+                </div>
                 {notice && (
-                  <p role="status" className="mt-4 rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
+                  <p role="status" className="mt-4 rounded-xl border border-[#5B9CD8]/30 bg-[#5B9CD8]/10 p-4 text-sm">
                     <Clock3 className="mr-2 inline h-4 w-4" aria-hidden="true" />
                     {notice}
                   </p>

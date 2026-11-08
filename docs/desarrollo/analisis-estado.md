@@ -25,7 +25,7 @@ La prioridad recomendada es cerrar las definiciones operativas de matrícula y p
 - El formulario público de contacto es visual: no tiene envío, acción, nombres de campos ni confirmación de recepción.
 - La selección de `/matricula` no crea ni persiste una reserva. Los cupos que presenta son capacidad nominal menos inscritos confirmados y no descuentan reservas temporales.
 - No existe reserva temporal, contador TTL, vencimiento, liberación automática, confirmación de cupo ni control transaccional de concurrencia.
-- No se encontró carga de documentos, flujo de inscripción de estudiante/apoderado ni integración con Transbank/Webpay.
+- La etapa documental existe como paso visual vacío; no hay carga de documentos, datos de apoderado/alumno ni integración con Transbank/Webpay.
 - Los roles `docente` y `alumno` se reconocen al iniciar sesión, pero sus portales no están implementados.
 - El panel permite crear y eliminar bloques, pero no editarlos.
 - Las políticas del snapshot compartido permiten `ALL` a cualquier usuario autenticado sobre `bloques_ramos` y `horarios`; la comprobación de rol `admin` en el panel es de interfaz y no sustituye permisos de base de datos. La revisión de RLS/migraciones en Supabase corresponde al trabajo separado de preparación de backend.
