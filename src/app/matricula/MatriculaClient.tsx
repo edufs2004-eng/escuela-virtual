@@ -36,6 +36,50 @@ interface OpcionHorario {
 
 const subjects = ['Matemáticas', 'Lenguaje', 'Inglés', 'Ciencias', 'Historia']
 
+function normalizarHorario(horario: string) {
+  return horario
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('es-CL')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function getTramoHorario(horario: string) {
+  const match = horario.match(/^(.+?)\s+(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+
+  const horaInicio = Number(match[2])
+  const minutoInicio = Number(match[3])
+  const horaTermino = Number(match[4])
+  const minutoTermino = Number(match[5])
+  if ([horaInicio, horaTermino].some((hora) => hora > 23)
+    || [minutoInicio, minutoTermino].some((minuto) => minuto > 59)) return null
+
+  const inicio = horaInicio * 60 + minutoInicio
+  const termino = horaTermino * 60 + minutoTermino
+  if (termino <= inicio) return null
+
+  return {
+    dia: normalizarHorario(match[1]),
+    inicio,
+    termino,
+  }
+}
+
+function horariosSeCruzan(horarioA: string, horarioB: string) {
+  const tramoA = getTramoHorario(horarioA)
+  const tramoB = getTramoHorario(horarioB)
+
+  if (!tramoA || !tramoB) {
+    return normalizarHorario(horarioA) === normalizarHorario(horarioB)
+  }
+
+  return tramoA.dia === tramoB.dia
+    && tramoA.inicio < tramoB.termino
+    && tramoB.inicio < tramoA.termino
+}
+
 function isDisponibilidadHorario(value: unknown): value is DisponibilidadRpcRow {
   if (typeof value !== 'object' || value === null) return false
 
@@ -403,32 +447,53 @@ export default function MatriculaPage() {
                           No hay horarios publicados para esta asignatura y nivel.
                         </p>
                       ) : (
-                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div role="radiogroup" className="mt-4 grid gap-3 md:grid-cols-2">
                           {options.map((option) => {
                             const full = option.cuposDisponibles === 0
                             const selected = selecciones[subject] === option.key
+                            const horarioYaSeleccionado = !selected && subjects.some((otherSubject) => {
+                              if (otherSubject === subject) return false
+
+                              const selectedOption = (opcionesPorAsignatura[otherSubject] ?? [])
+                                .find((candidate) => candidate.key === selecciones[otherSubject])
+
+                              return selectedOption !== undefined
+                                && horariosSeCruzan(selectedOption.horario, option.horario)
+                            })
 
                             return (
-                              <label
+                              <button
+                                type="button"
+                                role="radio"
                                 key={option.key}
-                                className={`flex cursor-pointer gap-3 rounded-2xl border p-4 transition-colors ${
+                                aria-checked={selected}
+                                disabled={(full && !selected) || horarioYaSeleccionado}
+                                onClick={() => {
+                                  setSelecciones((current) => {
+                                    if (current[subject] === option.key) {
+                                      const next = { ...current }
+                                      delete next[subject]
+                                      return next
+                                    }
+
+                                    return { ...current, [subject]: option.key }
+                                  })
+                                  setNotice(null)
+                                }}
+                                className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-left transition-colors ${
                                   selected
                                     ? 'border-[#4B8ECB] bg-[#5B9CD8]/10'
                                     : 'border-slate-200 hover:border-[#5B9CD8]/60'
-                                } ${full ? 'cursor-not-allowed opacity-70' : ''}`}
+                                } ${(full || horarioYaSeleccionado) && !selected ? 'cursor-not-allowed opacity-70' : ''}`}
                               >
-                                <input
-                                  type="radio"
-                                  name={`asignatura-${subject}`}
-                                  value={option.key}
-                                  checked={selected}
-                                  disabled={full}
-                                  onChange={() => {
-                                    setSelecciones((current) => ({ ...current, [subject]: option.key }))
-                                    setNotice(null)
-                                  }}
-                                  className="mt-1 accent-[#4B8ECB]"
-                                />
+                                <span
+                                  aria-hidden="true"
+                                  className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                    selected ? 'border-[#4B8ECB]' : 'border-slate-400'
+                                  }`}
+                                >
+                                  {selected && <span className="h-2 w-2 rounded-full bg-[#4B8ECB]" />}
+                                </span>
                                 <span className="min-w-0 flex-1">
                                   <span className="block font-semibold">{option.horario}</span>
                                   <span className={`mt-2 block text-xs font-semibold ${full ? 'text-[#9F3030]' : 'text-[#3D7A56]'}`}>
@@ -437,13 +502,18 @@ export default function MatriculaPage() {
                                   <span className="mt-1 block text-xs text-[#667A8A]">
                                     Cupos calculados al momento; se vuelven a validar al reservar.
                                   </span>
+                                  {horarioYaSeleccionado && (
+                                    <span className="mt-1 block text-xs text-[#9F3030]">
+                                      Este horario se cruza con otro ramo seleccionado.
+                                    </span>
+                                  )}
                                   {full && (
                                     <span className="mt-1 block text-xs text-[#667A8A]">
                                       Puedes volver a revisar en 5 a 10 minutos; no se garantiza que se libere un cupo.
                                     </span>
                                   )}
                                 </span>
-                              </label>
+                              </button>
                             )
                           })}
                         </div>
