@@ -100,11 +100,19 @@ export default function AdminRamosPage() {
   const fetchBloques = async () => {
     setLoading(true)
     const supabase = getSupabaseClient()
-    const { data, error } = await supabase.from('bloques_ramos').select('*').order('nivel', { ascending: true })
+    const { data, error } = await supabase
+      .from('bloques_ramos')
+      .select('id, nivel, asignatura, horario_id, profesor, capacidad_maxima, inscritos_count, horarios(etiqueta)')
+      .order('nivel', { ascending: true })
     if (error) {
       console.error('Error al cargar bloques:', error)
     } else {
-      setBloques(data || [])
+      setBloques((data ?? []).map((block) => ({
+        ...block,
+        horario: block.horarios?.[0]?.etiqueta ?? 'Horario no disponible',
+        capacidad_maxima: block.capacidad_maxima ?? 15,
+        inscritos_count: block.inscritos_count ?? 0,
+      })))
     }
     setLoading(false)
   }
@@ -226,7 +234,7 @@ export default function AdminRamosPage() {
       const { error } = await supabase.from('bloques_ramos').insert({
         nivel,
         asignatura,
-        horario: selectedHorario.etiqueta,
+        horario_id: selectedHorario.id,
         profesor: profesor.trim() || null,
         capacidad_maxima: 15,
         inscritos_count: 0,

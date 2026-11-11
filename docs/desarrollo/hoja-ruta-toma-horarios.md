@@ -1,6 +1,6 @@
 # Hoja de ruta: toma de horarios y matrícula
 
-**Fecha de revisión:** 6 de noviembre de 2026
+**Fecha de revisión:** 10 de noviembre de 2026
 
 **Documento de referencia analizado:** [`contexto_supabase.txt`](./contexto_supabase.txt)
 
@@ -37,14 +37,16 @@ Realizar una búsqueda acotada al código y documentos propios del repositorio y
 
 El snapshot actual de Supabase compartido en `docs/desarrollo/contexto_supabase.txt` describe estas tablas:
 
-- `bloques_ramos`: nivel, asignatura, horario, profesor opcional, capacidad máxima e inscritos.
+- `bloques_ramos`: nivel, asignatura, `horario_id` a `horarios`, profesor opcional, capacidad máxima e inscritos.
 - `profiles`: vinculado a `auth.users`, con los roles `admin`, `docente` y `alumno`.
 - `horarios`: etiquetas y descripciones de horarios.
-- `matriculas_temporales`: datos de apoderado/alumno, estado y vencimiento, con un único `bloque_horario_id`.
+- `matriculas_temporales`: datos de apoderado/alumno, estado, vencimiento, `horario_id` y `bloque_ramo_id`; representa una fila por asignatura.
+- `reservas_matricula`: reserva padre con ID estable, clave de idempotencia, token de acceso, nivel, estado y vencimiento.
+- `reserva_matricula_bloques`: detalle de bloques y asignaturas asociados a la reserva padre.
 
-Según la aclaración del usuario, el SQL y las políticas de ese archivo fueron copiados directamente desde el proyecto Supabase conectado y representan su estado actualizado. La tabla `matriculas_temporales` ya existe en ese snapshot, pero su FK `bloque_horario_id` referencia `horarios(id)`, no `bloques_ramos(id)`, y el modelo representa una sola asignatura por fila. Esto no satisface por sí solo la selección requerida de cinco bloques ni permite asumir una relación correcta con las secciones. El snapshot no documenta tablas de transacciones de pago.
+Según la aclaración del usuario, el SQL y las políticas de ese archivo fueron copiados directamente desde el proyecto Supabase conectado y representan su estado actualizado. La relación de `matriculas_temporales.bloque_ramo_id` ya apunta a `bloques_ramos(id)`, pero esa tabla sigue siendo de una fila por asignatura y no agrupa por sí sola los cinco bloques. El modelo padre/detalle `reservas_matricula` y `reserva_matricula_bloques` sí permite agrupar una selección y conservar un ID estable. El snapshot no documenta funciones de reserva/disponibilidad ni tablas de transacciones de pago.
 
-Las políticas incluidas permiten gestión a cualquier usuario autenticado sobre `bloques_ramos` y `horarios`, y lectura de perfiles a usuarios autenticados sin filtro de propietario. No se incluye una política para `matriculas_temporales`. Antes de abrir reservas hay que diseñar y verificar permisos apropiados para esas operaciones; una validación de interfaz no basta. La lista de políticas no indica explícitamente si RLS está habilitado en cada tabla.
+Las políticas incluidas restringen la gestión de `bloques_ramos` y `horarios` a administradores autenticados, permiten su lectura pública y permiten lectura de perfiles autenticados. El snapshot no lista políticas para las tablas de reservas ni confirma estado RLS, grants, triggers o funciones.
 
 El esquema de `horarios` conserva `etiqueta` y `descripcion`; la interfaz de administración genera la etiqueta a partir del día y las horas de inicio/término. La compatibilidad por nivel/asignatura y zona horaria no forma parte del catálogo actual.
 
@@ -135,6 +137,8 @@ Salir o recargar no genera un evento de estado ni modifica `expires_at`. La expi
 
 ### Fase 2 — Modelo de reservas, disponibilidad agregada y concurrencia
 
+**Estado de la infraestructura:** el snapshot ya contiene las tablas padre/detalle requeridas. La migración versionada `supabase/migrations/20261110110000_atomic_matricula_reservas.sql` las reutiliza, restringe el acceso directo a tablas de reserva y datos personales, agrega RPCs seguras para el backend, disponibilidad agregada y asignación balanceada con bloqueo de secciones. La migración está preparada en el repositorio, pero no se ha ejecutado en Supabase; la página pública requiere que se aplique antes de que su consulta RPC funcione.
+
 **Trabajo**
 
 - Diseñar, versionar y desplegar solo las estructuras mínimas requeridas para reservas temporales, selecciones de ramos, matrícula y relación con el pago. En esta ruta no activar almacenamiento/carga real de documentos; dejar solo el paso de interfaz hasta que se definan los requisitos. No implementar una base académica general fuera del flujo.
@@ -142,9 +146,10 @@ Salir o recargar no genera un evento de estado ni modifica `expires_at`. La expi
 - Implementar la creación y confirmación de reservas con operaciones atómicas del lado seguro (base de datos/servidor). Aplicar el límite de capacidad al confirmar la operación, no solamente al mostrar la disponibilidad.
 - Contar como ocupantes los cupos definitivos y las reservas temporales que sigan vigentes. Liberar automáticamente las vencidas sin depender de que el usuario vuelva a la página.
 - Agrupar en la disponibilidad pública las secciones que correspondan al mismo nivel, ramo y horario, cuando sean realmente intercambiables. Mostrar la suma de capacidades y cupos libres; conservar internamente las secciones individuales y sus capacidades.
-- Cada bloque/sección tendrá capacidad máxima de 15. Repartir alumnos de manera equilibrada entre secciones equivalentes con capacidad y conservar la sección asignada.
+- Cada bloque/sección tendrá capacidad máxima de 15. Repartir reservas de manera equilibrada entre secciones equivalentes con capacidad y conservar el bloque asignado en el detalle de la reserva.
 - Si el conjunto está lleno, mostrar cero cupos y explicar que puede esperar entre 5 y 10 minutos y volver a revisar si se libera uno; no prometer que un cupo será liberado ni presentar el TTL como garantía de disponibilidad.
-- Revisar y restringir RLS/permisos para que usuarios públicos no puedan cambiar cupos, perfiles, reservas ajenas, documentos ni estados de pago.
+- Restringir el acceso directo a las tablas padre/detalle y a la tabla antigua `matriculas_temporales`; permitir la creación, lectura por token, cancelación y expiración solo mediante operaciones seguras del backend. La disponibilidad pública devuelve únicamente valores agregados.
+- Programar la transición de estado a `expirada` con `pg_cron` cuando esté habilitado. Aunque no exista el cron, las reservas dejan de ocupar cupos a partir de `expires_at`; el estado puede actualizarse bajo demanda mediante la RPC o con un cron externo.
 
 **Criterios de aceptación**
 
@@ -152,10 +157,17 @@ Salir o recargar no genera un evento de estado ni modifica `expires_at`. La expi
 - Una reserva vigente descuenta capacidad; al vencer o cancelarse según regla acordada, deja de hacerlo.
 - Disponibilidad agrupada equivale a la suma de las secciones compatibles; ninguna sección interna supera su capacidad.
 - La selección requiere exactamente un bloque de Matemáticas, Lenguaje, Inglés, Ciencias e Historia; no admite duplicar un ramo.
+- Si dos reservas concurrentes compiten por el último cupo de una sección, solo una puede confirmarse como reserva temporal.
 - Los bloques sin profesor se mantienen seleccionables y no exponen un dato de profesor inexistente.
 - Un usuario no puede leer ni modificar los datos privados de otra familia.
 
+**Pruebas preparadas y límite de verificación:** `supabase/tests/reservas_matricula.sql` contiene una prueba transaccional para las cinco asignaturas, TTL inicial, idempotencia, reparto entre secciones, rechazo sin cupos, cancelación y expiración. No se ejecutó porque este entorno no tiene `psql` ni Supabase CLI y no se realizaron escrituras remotas. La concurrencia del último cupo debe verificarse tras aplicar la migración, con dos sesiones de base de datos independientes.
+
 ### Fase 3 — Flujo público de selección de ramos y toma de horarios
+
+**Decisión de presentación confirmada por el usuario**
+
+- Mostrar la disponibilidad con el texto **“Quedan X cupos libres”**, sin presentar el total en formato “X de Y”. Mantener esta frase al ajustar la interfaz, salvo que el usuario solicite cambiarla.
 
 **Trabajo**
 
@@ -268,12 +280,12 @@ No sustituir estas decisiones por valores elegidos únicamente por conveniencia 
 - **Alcance documental:** la etapa de documentos se implementará primero sin subida real. No se debe inventar ni solicitar información documental hasta recibir la lista aprobada.
 - **Repositorio:** la aplicación usa `profiles`, `bloques_ramos` y el catálogo `horarios` desde el panel admin; no hay migraciones ejecutables locales. `.env.local` define los nombres de las variables públicas de Supabase; sus valores no se inspeccionaron ni divulgaron.
 - **Fuente de auditoría de Supabase:** el usuario confirmó que `docs/desarrollo/contexto_supabase.txt` contiene el SQL y las políticas copiados directamente desde el proyecto conectado y que lo mantendrá actualizado. La revisión de esquema y políticas de esta ruta se basa en ese snapshot; la consulta REST de solo lectura registrada previamente también obtuvo HTTP 200 para `bloques_ramos`, `profiles` y `horarios` con `limit=0`, sin solicitar filas.
-- **Hallazgos de esquema y permisos:** el snapshot define `matriculas_temporales`, cuya FK apunta a `horarios(id)` y cuya fila solo contiene un `bloque_horario_id`; `profiles` tiene lectura para cualquier usuario autenticado, mientras que `bloques_ramos` y `horarios` permiten gestión a usuarios autenticados sin restricción de rol admin y lectura pública. El snapshot no muestra políticas para `matriculas_temporales`.
+- **Hallazgos de esquema y permisos actualizados:** el snapshot ahora incluye `bloques_ramos.horario_id`, `matriculas_temporales.bloque_ramo_id` y las tablas padre/detalle `reservas_matricula` y `reserva_matricula_bloques`. Las políticas de bloques y horarios restringen la gestión a admins y permiten lectura pública; el snapshot no lista políticas ni funciones para las tablas de reservas.
 - **Límite de auditoría:** el snapshot refleja el estado reportado por el usuario, pero no enumera explícitamente si RLS está habilitado por tabla ni grants, triggers o funciones. No se solicitaron filas ni datos personales. Antes de crear migraciones o exponer operaciones de reserva, resolver la incompatibilidad de la FK y verificar estos elementos en el proyecto.
-- **Resultado:** la auditoría documental de esquema y políticas queda completada con la fuente actualizada confirmada por el usuario. Las restricciones de permisos y la incompatibilidad de `matriculas_temporales` deben resolverse en las fases correspondientes; pago y carga real siguen sujetos a sus decisiones específicas. No se modificó código ni configuración de Supabase.
+- **Resultado actualizado:** la migración de Fase 2 reutiliza las tablas de reservas existentes, sin eliminar datos ni tablas. Está versionada en el repositorio y aún debe aplicarse y probarse en el proyecto conectado; no se modificó la base remota desde este entorno. Pago y carga real siguen sujetos a sus fases correspondientes.
 - **Fase 1 iniciada con autorización del usuario:** se actualizaron las superficies visibles de marca, los llamados de matrícula llevan a una página pública que describe el proceso sin simular reservas/pagos, el contacto queda separado para consultas, WhatsApp aparece deshabilitado y el profesor es opcional al crear/listar bloques. El usuario indicó que la preparación de Supabase está a cargo de Gemini y que se continúe programando la web/portal usando el contexto como contrato actualizado, sin modificar la base remota.
-- **Aclaración del usuario sobre el catálogo y su uso en web:** las opciones de `horarios` aplican a todos los niveles/asignaturas. El panel crea opciones estructuradas con día y horas, compone la etiqueta `Día HH:mm - HH:mm`, la persiste en `horarios.etiqueta` y permite seleccionarla al crear bloques; `bloques_ramos.horario` conserva esa etiqueta como texto, sin FK. La descripción existente en el esquema no se solicita ni se usa en la interfaz. La selección pública real de horarios y disponibilidad se conecta en el flujo público.
-- **Avance de interfaz pública:** `/matricula` carga `bloques_ramos`, permite escoger nivel y una opción agrupada por ramo/horario para los cinco ramos, y deshabilita opciones cuyo conteo de inscritos llena su capacidad. El conteo mostrado es solo capacidad nominal menos inscritos confirmados; el snapshot no permite vincular las reservas temporales con esos bloques, por lo que la interfaz lo etiqueta como estimación y no crea ni garantiza una reserva. La etapa documental vacía permite volver, cancelar la selección local o continuar sin adjuntar archivos. La pantalla de pago es solo informativa y no inicia Transbank. Ninguna selección ni avance se guarda en el servidor; no hay ID temporal, timer ni mutación de reserva.
+- **Aclaración del usuario sobre el catálogo y su uso en web:** las opciones de `horarios` aplican a todos los niveles/asignaturas. El panel crea opciones estructuradas con día y horas, compone la etiqueta `Día HH:mm - HH:mm`, la persiste en `horarios.etiqueta` y guarda `horario_id` al crear bloques. La etiqueta se presenta mediante la relación con `horarios`; la columna textual antigua `bloques_ramos.horario` ya no pertenece al esquema actual. La descripción no se solicita ni se usa en la interfaz.
+- **Avance de interfaz pública:** `/matricula` consulta el agregado por nivel/ramo/horario, con cupos calculados a partir de inscritos y reservas vigentes, y muestra “Quedan X cupos libres”. Esta consulta requiere que se aplique la migración de Fase 2. La selección todavía no crea una reserva ni inicia un temporizador. La etapa documental permite continuar sin adjuntos; el pago sigue siendo informativo y no inicia Transbank.
 
 La tabla se actualizará al cerrar cada fase. Los archivos concretos se completan después de la inspección previa a esa fase; “No” significa que esta ruta todavía no implementó el requisito.
 
@@ -287,10 +299,10 @@ La tabla se actualizará al cerrar cada fase. Los archivos concretos se completa
 | 0 | Auditoría del esquema y políticas RLS de Supabase | `docs/desarrollo/contexto_supabase.txt` | Sí (solo lectura; fuente actual confirmada por el usuario) | Sí para el SQL y políticas incluidos en el snapshot; estado RLS habilitado, grants, triggers y funciones no aparecen explícitamente |
 | 1 | Marca visible Escencia, CTA, contacto solo consultas y WhatsApp inactivo | `src/app/page.tsx`; `src/app/layout.tsx`; `src/app/matricula/page.tsx` | Sí: CTA lleva al flujo público separado del contacto; WhatsApp inactivo | Build y TypeScript correctos |
 | 1 | Profesor opcional en la creación/listado de bloques | `src/app/admin/ramos/page.tsx` | Sí | Build y TypeScript correctos |
-| 1 | Gestión del catálogo de horarios y selector controlado en el panel admin | `src/app/admin/ramos/page.tsx` | Sí: crea horarios con día y reloj de inicio/término, normaliza la etiqueta, no usa descripción, carga el catálogo, impide texto libre al crear bloques y guarda la etiqueta en `bloques_ramos.horario` | Build y TypeScript correctos |
-| 2 | Reservas atómicas, TTL persistido y disponibilidad agregada | Pendiente de inspección | No | No |
-| 2 | Límite de 15 por sección y controles de acceso | Pendiente de inspección | No | No |
-| 3 | Selección pública de los cinco ramos y bloques publicados | `src/app/matricula/MatriculaClient.tsx` | Parcial: consulta bloques, permite nivel y una opción agrupada por ramo/horario; muestra libres según inscritos y explicita que no cuenta reservas temporales | Build/TypeScript correctos; no se verificó con datos remotos |
+| 1 | Gestión del catálogo de horarios y selector controlado en el panel admin | `src/app/admin/ramos/page.tsx` | Sí: crea horarios con día y reloj de inicio/término, normaliza la etiqueta, no usa descripción, carga el catálogo, impide texto libre al crear bloques y guarda su `horario_id`; el listado resuelve la etiqueta mediante la relación | Build y TypeScript correctos |
+| 2 | Reservas atómicas, TTL persistido y disponibilidad agregada | `supabase/migrations/20261110110000_atomic_matricula_reservas.sql`; `supabase/tests/reservas_matricula.sql` | Preparado: reutiliza tablas existentes, valida cinco ramos, usa clave de idempotencia, bloquea secciones candidatas, asigna a la menos ocupada, persiste TTL de 10 minutos, expone disponibilidad agregada y restringe las operaciones de reserva al backend | Build correcto para consumidores web; migración y prueba SQL pendientes de ejecución en Supabase |
+| 2 | Límite de 15 por sección y controles de acceso | `supabase/migrations/20261110110000_atomic_matricula_reservas.sql` | Preparado: restricción de capacidad y RLS/permisos cerrados para tablas de reserva y datos temporales | Pendiente de aplicar e inspeccionar el estado resultante; `pg_cron` debe confirmarse habilitado para la actualización periódica de estados |
+| 3 | Selección pública de los cinco ramos y bloques publicados | `src/app/matricula/MatriculaClient.tsx` | Parcial: consulta el agregado por nivel/ramo/horario y muestra “Quedan X cupos libres”; todavía no crea la reserva desde la interfaz ni aparta cupos | Build/TypeScript correctos; la RPC estará disponible después de aplicar la migración |
 | 3 | Reserva persistida, timer TTL y navegación cancelar/volver | Pendiente de operación atómica backend descrita/actualizada por responsable Supabase | No | No: no se crea reserva ni se inicia TTL |
 | 4 | Etapa documental vacía, sin carga de archivos en esta entrega | `src/app/matricula/MatriculaClient.tsx` | Parcial: etapa visual, resumen, continuar sin adjuntos, volver y cancelar la selección local | Build/TypeScript correctos; no está vinculada a un ID temporal ni cancela una reserva real |
 | 5 | Transbank con segundo TTL, conciliación y matrícula/perfil definitivo | Pendiente de integración backend/proveedor | No; solo existe pantalla informativa deshabilitada | No se inicia transacción, no hay segundo TTL ni se confirma matrícula |

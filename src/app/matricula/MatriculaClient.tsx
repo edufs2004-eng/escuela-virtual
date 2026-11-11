@@ -14,34 +14,64 @@ import {
 } from 'lucide-react'
 import { getSupabaseClient } from '@/lib/supabase'
 
-interface BloqueRamo {
-  id: string
+interface DisponibilidadHorario {
   nivel: string
   asignatura: string
-  horario: string
-  profesor: string | null
-  capacidad_maxima: number | null
-  inscritos_count: number | null
+  horario_id: string
+  etiqueta: string
+  cupos_libres: number
+}
+
+interface DisponibilidadRpcRow extends Omit<DisponibilidadHorario, 'cupos_libres'> {
+  cupos_libres: number | string
 }
 
 interface OpcionHorario {
   key: string
   asignatura: string
+  horarioId: string
   horario: string
-  bloques: BloqueRamo[]
   cuposDisponibles: number
 }
 
 const subjects = ['Matemáticas', 'Lenguaje', 'Inglés', 'Ciencias', 'Historia']
 
-function getAvailability(block: BloqueRamo) {
-  const capacity = block.capacidad_maxima ?? 15
-  const enrolled = block.inscritos_count ?? 0
-  return Math.max(0, capacity - enrolled)
+function isDisponibilidadHorario(value: unknown): value is DisponibilidadRpcRow {
+  if (typeof value !== 'object' || value === null) return false
+
+  const row = value as Record<string, unknown>
+  return typeof row.nivel === 'string'
+    && typeof row.asignatura === 'string'
+    && typeof row.horario_id === 'string'
+    && typeof row.etiqueta === 'string'
+    && (
+      typeof row.cupos_libres === 'number'
+        ? Number.isFinite(row.cupos_libres)
+        : typeof row.cupos_libres === 'string'
+          && row.cupos_libres.trim() !== ''
+          && Number.isFinite(Number(row.cupos_libres))
+    )
+}
+
+function parseDisponibilidad(data: unknown): DisponibilidadHorario[] {
+  if (!Array.isArray(data)) {
+    throw new Error('La función de disponibilidad devolvió un formato inválido.')
+  }
+
+  return data.map((row: unknown) => {
+    if (!isDisponibilidadHorario(row)) {
+      throw new Error('La función de disponibilidad devolvió una fila inválida.')
+    }
+
+    return {
+      ...row,
+      cupos_libres: Number(row.cupos_libres),
+    }
+  })
 }
 
 export default function MatriculaPage() {
-  const [bloques, setBloques] = useState<BloqueRamo[]>([])
+  const [bloques, setBloques] = useState<DisponibilidadHorario[]>([])
   const [nivel, setNivel] = useState('')
   const [selecciones, setSelecciones] = useState<Record<string, string>>({})
   const [etapa, setEtapa] = useState<'seleccion' | 'documentos' | 'pago'>('seleccion')
@@ -56,12 +86,10 @@ export default function MatriculaPage() {
 
     try {
       const supabase = getSupabaseClient()
-      const { data, error: queryError } = await supabase
-        .from('bloques_ramos')
-        .select('id, nivel, asignatura, horario, profesor, capacidad_maxima, inscritos_count')
-        .order('nivel', { ascending: true })
-        .order('asignatura', { ascending: true })
-        .order('horario', { ascending: true })
+      const { data, error: queryError } = await supabase.rpc(
+        'disponibilidad_matricula',
+        { p_nivel: null },
+      )
 
       if (queryError) {
         console.error('No se pudo cargar la oferta de horarios:', queryError)
@@ -69,7 +97,7 @@ export default function MatriculaPage() {
         return
       }
 
-      const publishedBlocks = data ?? []
+      const publishedBlocks = parseDisponibilidad(data ?? [])
       setBloques(publishedBlocks)
       setNivel((current) => current && publishedBlocks.some((block) => block.nivel === current)
         ? current
@@ -100,18 +128,17 @@ export default function MatriculaPage() {
     for (const block of bloques) {
       if (block.nivel !== nivel || !subjects.includes(block.asignatura)) continue
 
-      const key = `${block.asignatura}\u0000${block.horario}`
+      const key = `${block.asignatura}\u0000${block.horario_id}`
       const existing = groups.get(key)
       if (existing) {
-        existing.bloques.push(block)
-        existing.cuposDisponibles += getAvailability(block)
+        existing.cuposDisponibles += block.cupos_libres
       } else {
         groups.set(key, {
           key,
           asignatura: block.asignatura,
-          horario: block.horario,
-          bloques: [block],
-          cuposDisponibles: getAvailability(block),
+          horarioId: block.horario_id,
+          horario: block.etiqueta,
+          cuposDisponibles: block.cupos_libres,
         })
       }
     }
@@ -186,8 +213,8 @@ export default function MatriculaPage() {
               role="status"
               className="mt-6 rounded-2xl border border-[#5B9CD8]/30 bg-[#5B9CD8]/10 p-4 text-sm font-medium text-[#1A2C42]"
             >
-              Esta selección todavía no crea una reserva ni garantiza disponibilidad. Los cupos
-              se confirmarán cuando la reserva segura esté habilitada.
+              Los cupos consideran matrículas confirmadas y reservas temporales vigentes.
+              Esta selección todavía no reserva los cupos; la disponibilidad debe validarse al crear la reserva.
             </div>
           </div>
 
@@ -408,7 +435,7 @@ export default function MatriculaPage() {
                                     Quedan {option.cuposDisponibles} cupos libres
                                   </span>
                                   <span className="mt-1 block text-xs text-[#667A8A]">
-                                    No considera reservas temporales y no garantiza disponibilidad.
+                                    Cupos calculados al momento; se vuelven a validar al reservar.
                                   </span>
                                   {full && (
                                     <span className="mt-1 block text-xs text-[#667A8A]">

@@ -1,6 +1,6 @@
 # Análisis del estado del proyecto
 
-**Fecha de revisión:** 6 de noviembre de 2026  
+**Fecha de revisión:** 8 de noviembre de 2026
 **Base funcional:** archivos disponibles en el repositorio en esta fecha  
 **Contextos contrastados:** [contexto del proyecto](../../contexto%20del%20proyecto.md) y [análisis anterior](../../colegio_virtual.txt)
 
@@ -15,8 +15,8 @@ La prioridad recomendada es cerrar las definiciones operativas de matrícula y p
 - **Sitio público:** una página de presentación con oferta, niveles, precios, contacto y enlaces entre secciones, en [`src/app/page.tsx`](../../src/app/page.tsx).
 - **Inicio de sesión:** autenticación con correo y contraseña de Supabase y consulta del rol en `profiles`, en [`src/app/login/page.tsx`](../../src/app/login/page.tsx).
 - **Acceso administrativo:** el panel verifica sesión y rol `admin` antes de mostrar la gestión de bloques, en [`src/app/admin/ramos/page.tsx`](../../src/app/admin/ramos/page.tsx).
-- **Gestión de horarios y bloques:** el panel permite crear opciones en `horarios` seleccionando día y horas de inicio/término; normaliza esos valores como `Día HH:mm - HH:mm` y los guarda en `etiqueta`, sin solicitar ni mostrar `descripcion`. Los bloques se consultan, crean y eliminan en `bloques_ramos`; al crear, fija capacidad en 15 e inscritos en 0. El horario seleccionado se guarda como etiqueta en el campo textual `bloques_ramos.horario`; el profesor es opcional.
-- **Entrada pública a matrícula:** los CTA de admisión llevan a `/matricula`, donde se consultan bloques publicados y se puede preparar una selección visual de las cinco asignaturas obligatorias.
+- **Gestión de horarios y bloques:** el panel permite crear opciones en `horarios` seleccionando día y horas de inicio/término; normaliza esos valores como `Día HH:mm - HH:mm` y los guarda en `etiqueta`, sin solicitar ni mostrar `descripcion`. Los bloques se consultan, crean y eliminan en `bloques_ramos`; al crear, fija capacidad en 15 e inscritos en 0. El bloque guarda `horario_id` y el panel presenta la etiqueta relacionada; el profesor es opcional.
+- **Entrada pública a matrícula:** los CTA de admisión llevan a `/matricula`, donde se consultan bloques publicados y se puede preparar una selección visual de las cinco asignaturas obligatorias. La disponibilidad se presenta con el texto “Quedan X cupos libres”, sin total “X de Y”; es una decisión confirmada y debe conservarse salvo nueva indicación del usuario.
 - **Cliente de Supabase:** inicialización bajo demanda con `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`, en [`src/lib/supabase.ts`](../../src/lib/supabase.ts).
 - **Interfaz:** Next.js 16, React 19, TypeScript, Tailwind CSS 4 y Lucide React. Los comandos definidos son `dev`, `build` y `start`.
 

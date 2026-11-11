@@ -5,12 +5,13 @@ CREATE TABLE public.bloques_ramos (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   nivel text NOT NULL,
   asignatura text NOT NULL,
-  horario text NOT NULL,
   profesor text,
   capacidad_maxima integer DEFAULT 15,
   inscritos_count integer DEFAULT 0,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT bloques_ramos_pkey PRIMARY KEY (id)
+  horario_id uuid,
+  CONSTRAINT bloques_ramos_pkey PRIMARY KEY (id),
+  CONSTRAINT bloques_ramos_horario_id_fkey FOREIGN KEY (horario_id) REFERENCES public.horarios(id)
 );
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
@@ -30,7 +31,6 @@ CREATE TABLE public.horarios (
 );
 CREATE TABLE public.matriculas_temporales (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  bloque_horario_id uuid,
   nivel text NOT NULL,
   asignatura text NOT NULL,
   rut_apoderado text,
@@ -42,10 +42,31 @@ CREATE TABLE public.matriculas_temporales (
   estado text DEFAULT 'pendiente_pago'::text CHECK (estado = ANY (ARRAY['pendiente_pago'::text, 'pagado'::text, 'expirado'::text, 'cancelado'::text])),
   expires_at timestamp with time zone NOT NULL DEFAULT (now() + '00:10:00'::interval),
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  horario_id uuid,
+  bloque_ramo_id uuid,
   CONSTRAINT matriculas_temporales_pkey PRIMARY KEY (id),
-  CONSTRAINT matriculas_temporales_bloque_horario_id_fkey FOREIGN KEY (bloque_horario_id) REFERENCES public.horarios(id)
+  CONSTRAINT matriculas_temporales_horario_id_fkey FOREIGN KEY (horario_id) REFERENCES public.horarios(id),
+  CONSTRAINT matriculas_temporales_bloque_ramo_id_fkey FOREIGN KEY (bloque_ramo_id) REFERENCES public.bloques_ramos(id)
 );
-
+CREATE TABLE public.reservas_matricula (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  clave_idempotencia uuid NOT NULL UNIQUE,
+  token_acceso uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  nivel text NOT NULL,
+  estado text NOT NULL DEFAULT 'activa'::text CHECK (estado = ANY (ARRAY['activa'::text, 'pago_pendiente'::text, 'confirmada'::text, 'cancelada'::text, 'expirada'::text])),
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '00:10:00'::interval),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  pago_iniciado_at timestamp with time zone,
+  CONSTRAINT reservas_matricula_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.reserva_matricula_bloques (
+  reserva_id uuid NOT NULL,
+  bloque_ramo_id uuid NOT NULL,
+  asignatura text NOT NULL,
+  CONSTRAINT reserva_matricula_bloques_pkey PRIMARY KEY (reserva_id, asignatura),
+  CONSTRAINT reserva_matricula_bloques_reserva_id_fkey FOREIGN KEY (reserva_id) REFERENCES public.reservas_matricula(id),
+  CONSTRAINT reserva_matricula_bloques_bloque_ramo_id_fkey FOREIGN KEY (bloque_ramo_id) REFERENCES public.bloques_ramos(id)
+);
 
 ## Table `bloques_ramos`
 
@@ -56,11 +77,11 @@ CREATE TABLE public.matriculas_temporales (
 | `id` | `uuid` | Primary |
 | `nivel` | `text` |  |
 | `asignatura` | `text` |  |
-| `horario` | `text` |  |
 | `profesor` | `text` |  Nullable |
 | `capacidad_maxima` | `int4` |  Nullable |
 | `inscritos_count` | `int4` |  Nullable |
 | `created_at` | `timestamptz` |  |
+| `horario_id` | `uuid` |  Nullable |
 
 ## Table `profiles`
 
@@ -92,7 +113,6 @@ CREATE TABLE public.matriculas_temporales (
 | Name | Type | Constraints |
 |------|------|-------------|
 | `id` | `uuid` | Primary |
-| `bloque_horario_id` | `uuid` |  Nullable |
 | `nivel` | `text` |  |
 | `asignatura` | `text` |  |
 | `rut_apoderado` | `text` |  Nullable |
@@ -104,8 +124,49 @@ CREATE TABLE public.matriculas_temporales (
 | `estado` | `text` |  Nullable |
 | `expires_at` | `timestamptz` |  |
 | `created_at` | `timestamptz` |  |
+| `horario_id` | `uuid` |  Nullable |
+| `bloque_ramo_id` | `uuid` |  Nullable |
+
+## Table `reservas_matricula`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `id` | `uuid` | Primary |
+| `clave_idempotencia` | `uuid` |  Unique |
+| `token_acceso` | `uuid` |  Unique |
+| `nivel` | `text` |  |
+| `estado` | `text` |  |
+| `expires_at` | `timestamptz` |  |
+| `created_at` | `timestamptz` |  |
+| `pago_iniciado_at` | `timestamptz` |  Nullable |
+
+## Table `reserva_matricula_bloques`
+
+### Columns
+
+| Name | Type | Constraints |
+|------|------|-------------|
+| `reserva_id` | `uuid` | Primary |
+| `bloque_ramo_id` | `uuid` |  |
+| `asignatura` | `text` | Primary |
 
 ## RLS Policies
+
+### `bloques_ramos`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Gestion admin de bloques` | ALL | authenticated | PERMISSIVE | `(EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text))))` | `(EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text))))` |
+| `Lectura publica de bloques` | SELECT | anon, authenticated | PERMISSIVE | `true` | — |
+
+### `horarios`
+
+| Policy | Command | Roles | Action | USING | WITH CHECK |
+|--------|---------|-------|--------|-------|------------|
+| `Gestion admin de horarios` | ALL | authenticated | PERMISSIVE | `(EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text))))` | `(EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text))))` |
+| `Lectura publica de horarios` | SELECT | anon, authenticated | PERMISSIVE | `true` | — |
 
 ### `profiles`
 
@@ -113,25 +174,11 @@ CREATE TABLE public.matriculas_temporales (
 |--------|---------|-------|--------|-------|------------|
 | `Permitir lectura de perfiles` | SELECT | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | — |
 
-### `bloques_ramos`
 
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `Permitir gestion a usuarios autenticados` | ALL | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | `(auth.role() = 'authenticated'::text)` |
-| `Permitir lectura de bloques` | SELECT | public | PERMISSIVE | `true` | — |
-
-### `horarios`
-
-| Policy | Command | Roles | Action | USING | WITH CHECK |
-|--------|---------|-------|--------|-------|------------|
-| `Gestion admin horarios` | ALL | public | PERMISSIVE | `(auth.role() = 'authenticated'::text)` | `(auth.role() = 'authenticated'::text)` |
-| `Lectura libre horarios` | SELECT | public | PERMISSIVE | `true` | — |
-
-
-| esquema | tabla         | nombre_politica                          | tipo       | roles_afectados | operacion | definicion_using                      | definicion_with_check                 |
-| ------- | ------------- | ---------------------------------------- | ---------- | --------------- | --------- | ------------------------------------- | ------------------------------------- |
-| public  | profiles      | Permitir lectura de perfiles             | PERMISSIVE | {public}        | SELECT    | (auth.role() = 'authenticated'::text) | null                                  |
-| public  | bloques_ramos | Permitir gestion a usuarios autenticados | PERMISSIVE | {public}        | ALL       | (auth.role() = 'authenticated'::text) | (auth.role() = 'authenticated'::text) |
-| public  | bloques_ramos | Permitir lectura de bloques              | PERMISSIVE | {public}        | SELECT    | true                                  | null                                  |
-| public  | horarios      | Gestion admin horarios                   | PERMISSIVE | {public}        | ALL       | (auth.role() = 'authenticated'::text) | (auth.role() = 'authenticated'::text) |
-| public  | horarios      | Lectura libre horarios                   | PERMISSIVE | {public}        | SELECT    | true                                  | null                                  |
+| schemaname | tablename     | policyname                   | permissive | roles                | cmd    | using_expression                                                                                                          | with_check_expression                                                                                                     |
+| ---------- | ------------- | ---------------------------- | ---------- | -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| public     | bloques_ramos | Gestion admin de bloques     | PERMISSIVE | {authenticated}      | ALL    | (EXISTS ( SELECT 1<br>   FROM profiles p<br>  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text)))) | (EXISTS ( SELECT 1<br>   FROM profiles p<br>  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text)))) |
+| public     | bloques_ramos | Lectura publica de bloques   | PERMISSIVE | {anon,authenticated} | SELECT | true                                                                                                                      | null                                                                                                                      |
+| public     | horarios      | Gestion admin de horarios    | PERMISSIVE | {authenticated}      | ALL    | (EXISTS ( SELECT 1<br>   FROM profiles p<br>  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text)))) | (EXISTS ( SELECT 1<br>   FROM profiles p<br>  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'admin'::text)))) |
+| public     | horarios      | Lectura publica de horarios  | PERMISSIVE | {anon,authenticated} | SELECT | true                                                                                                                      | null                                                                                                                      |
+| public     | profiles      | Permitir lectura de perfiles | PERMISSIVE | {public}             | SELECT | (auth.role() = 'authenticated'::text)                                                                                     | null                                                                                                                      |
