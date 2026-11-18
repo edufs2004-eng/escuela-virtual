@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -35,6 +35,36 @@ interface OpcionHorario {
 }
 
 const subjects = ['Matemáticas', 'Lenguaje', 'Inglés', 'Ciencias', 'Historia']
+const FLOW_STORAGE_KEY = 'escencia-matricula-flow'
+const PENDING_STORAGE_KEY = 'escencia-matricula-pending'
+
+interface ReservaActiva {
+  id: string
+  expiresAt: string
+  idempotencyKey: string
+  deadline: number
+}
+
+interface SolicitudPendiente {
+  nivel: string
+  selecciones: Record<string, string>
+  claveIdempotencia: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function formatTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+}
 
 function normalizarHorario(horario: string) {
   return horario
@@ -121,8 +151,17 @@ export default function MatriculaPage() {
   const [etapa, setEtapa] = useState<'seleccion' | 'documentos' | 'pago'>('seleccion')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [documentosContinuados, setDocumentosContinuados] = useState(false)
+  const [reserva, setReserva] = useState<ReservaActiva | null>(null)
+  const [segundosRestantes, setSegundosRestantes] = useState(0)
+  const [reservaVencida, setReservaVencida] = useState(false)
+  const [recuperandoReserva, setRecuperandoReserva] = useState(false)
+  const [creatingReservation, setCreatingReservation] = useState(false)
+  const [restauracionCompleta, setRestauracionCompleta] = useState(false)
+  const pendingRequest = useRef<SolicitudPendiente | null>(null)
+  const reservationToRecover = useRef<string | null>(null)
 
   const cargarBloques = useCallback(async () => {
     setLoading(true)
@@ -146,9 +185,6 @@ export default function MatriculaPage() {
       setNivel((current) => current && publishedBlocks.some((block) => block.nivel === current)
         ? current
         : publishedBlocks[0]?.nivel ?? '')
-      setSelecciones({})
-      setEtapa('seleccion')
-      setDocumentosContinuados(false)
     } catch (loadError) {
       console.error('Error inesperado al cargar la oferta de horarios:', loadError)
       setError('No pudimos conectar con la oferta de horarios. Intenta nuevamente.')
@@ -160,6 +196,170 @@ export default function MatriculaPage() {
   useEffect(() => {
     void cargarBloques()
   }, [cargarBloques])
+
+  useEffect(() => {
+    if (loading || restauracionCompleta) return
+
+    const restoreSelection = (savedLevel: string, savedSelections: unknown) => {
+      if (!isRecord(savedSelections) || !bloques.some((block) => block.nivel === savedLevel)) return false
+
+      const restored: Record<string, string> = {}
+      for (const subject of subjects) {
+        const key = savedSelections[subject]
+        if (
+          typeof key !== 'string'
+          || !bloques.some((block) => block.nivel === savedLevel
+            && `${block.asignatura}\u0000${block.horario_id}` === key)
+        ) {
+          return false
+        }
+        restored[subject] = key
+      }
+
+      setNivel(savedLevel)
+      setSelecciones(restored)
+      return true
+    }
+
+    const restore = async () => {
+      try {
+        const storedFlow = localStorage.getItem(FLOW_STORAGE_KEY)
+        if (storedFlow) {
+          const parsed: unknown = JSON.parse(storedFlow)
+          if (
+            isRecord(parsed)
+            && typeof parsed.nivel === 'string'
+            && isUuid(parsed.reserva_id)
+            && isUuid(parsed.clave_idempotencia)
+            && restoreSelection(parsed.nivel, parsed.selecciones)
+          ) {
+            reservationToRecover.current = parsed.reserva_id
+            const response = await fetch(`/api/matricula/reservas/${parsed.reserva_id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accion: 'estado' }),
+              cache: 'no-store',
+            })
+            const result: unknown = await response.json()
+
+            if (response.ok && isRecord(result)) {
+              const remaining = Number(result.segundos_restantes)
+              if (
+                ['activa', 'pago_pendiente'].includes(String(result.estado))
+                && Number.isInteger(remaining)
+                && remaining > 0
+                && typeof result.vence_en === 'string'
+              ) {
+                const idempotencyKey = parsed.clave_idempotencia
+                setReserva({
+                  id: parsed.reserva_id,
+                  expiresAt: result.vence_en,
+                  idempotencyKey,
+                  deadline: performance.now() + remaining * 1000,
+                })
+                setReservaVencida(false)
+                setEtapa(parsed.etapa === 'pago' ? 'pago' : 'documentos')
+                setDocumentosContinuados(parsed.documentosContinuados === true)
+                reservationToRecover.current = null
+              } else {
+                localStorage.removeItem(FLOW_STORAGE_KEY)
+                reservationToRecover.current = null
+                setReservaVencida(true)
+                setEtapa('seleccion')
+                setNotice('La reserva venció o terminó. Puedes actualizar los cupos y comenzar nuevamente.')
+              }
+            } else {
+              pendingRequest.current = {
+                nivel: parsed.nivel,
+                selecciones: parsed.selecciones as Record<string, string>,
+                claveIdempotencia: parsed.clave_idempotencia,
+              }
+              setRecuperandoReserva(true)
+              setEtapa('seleccion')
+              setNotice('No pudimos verificar la reserva. Al reintentar, se recuperará con la misma solicitud sin renovar su vencimiento.')
+            }
+
+            setRestauracionCompleta(true)
+            return
+          }
+          localStorage.removeItem(FLOW_STORAGE_KEY)
+        }
+
+        const storedPending = localStorage.getItem(PENDING_STORAGE_KEY)
+        if (storedPending) {
+          const parsed: unknown = JSON.parse(storedPending)
+          if (
+            isRecord(parsed)
+            && typeof parsed.nivel === 'string'
+            && isUuid(parsed.claveIdempotencia)
+            && restoreSelection(parsed.nivel, parsed.selecciones)
+          ) {
+            pendingRequest.current = {
+              nivel: parsed.nivel,
+              selecciones: parsed.selecciones as Record<string, string>,
+              claveIdempotencia: parsed.claveIdempotencia,
+            }
+            setNotice('Se recuperó una solicitud pendiente. Continúa para completar la verificación sin reiniciar su TTL.')
+          } else {
+            localStorage.removeItem(PENDING_STORAGE_KEY)
+          }
+        }
+      } catch (restoreError) {
+        console.error('No se pudo recuperar el estado local de matrícula:', restoreError)
+        setNotice('No se pudo recuperar el estado guardado de matrícula en este navegador.')
+      } finally {
+        setRestauracionCompleta(true)
+      }
+    }
+
+    void restore()
+  }, [bloques, loading, restauracionCompleta])
+
+  useEffect(() => {
+    if (!reserva) return
+
+    const updateRemaining = () => {
+      const remaining = Math.max(0, Math.ceil((reserva.deadline - performance.now()) / 1000))
+      setSegundosRestantes(remaining)
+      if (remaining > 0) return
+
+      setReserva(null)
+      setReservaVencida(true)
+      setEtapa('seleccion')
+      setDocumentosContinuados(false)
+      setNotice('La reserva venció. Sus cupos ya no están apartados; actualiza la disponibilidad antes de continuar.')
+      void cargarBloques()
+      try {
+        localStorage.removeItem(FLOW_STORAGE_KEY)
+        localStorage.removeItem(PENDING_STORAGE_KEY)
+      } catch (storageError) {
+        console.error('No se pudo limpiar el estado local de matrícula:', storageError)
+      }
+    }
+
+    updateRemaining()
+    const interval = window.setInterval(updateRemaining, 1000)
+    return () => window.clearInterval(interval)
+  }, [cargarBloques, reserva])
+
+  useEffect(() => {
+    if (!reserva) return
+
+    try {
+      localStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify({
+        nivel,
+        selecciones,
+        reserva_id: reserva.id,
+        vence_en: reserva.expiresAt,
+        clave_idempotencia: reserva.idempotencyKey,
+        etapa,
+        documentosContinuados,
+      }))
+    } catch (storageError) {
+      console.error('No se pudo guardar la recuperación de la reserva:', storageError)
+      setNotice('La reserva se creó, pero este navegador no permite guardar su recuperación local. No cierres esta página.')
+    }
+  }, [documentosContinuados, etapa, nivel, reserva, selecciones])
 
   const niveles = useMemo(
     () => [...new Set(bloques.map((bloque) => bloque.nivel))],
@@ -197,29 +397,160 @@ export default function MatriculaPage() {
   const seleccionCompleta = subjects.every((subject) => Boolean(selecciones[subject]))
 
   const seleccionarNivel = (newLevel: string) => {
+    if (reserva) return
     setNivel(newLevel)
     setSelecciones({})
     setNotice(null)
+    setReservaVencida(false)
+    setActionError(null)
   }
 
-  const confirmarSeleccion = () => {
+  const confirmarSeleccion = async () => {
     if (!seleccionCompleta) return
+    if (reserva) {
+      setEtapa('documentos')
+      return
+    }
+
+    setCreatingReservation(true)
+    setActionError(null)
     setNotice(null)
-    setDocumentosContinuados(false)
-    setEtapa('documentos')
+    const pending = pendingRequest.current
+    const idempotencyKey = pending
+      && pending.nivel === nivel
+      && subjects.every((subject) => pending.selecciones[subject] === selecciones[subject])
+      ? pending.claveIdempotencia
+      : crypto.randomUUID()
+    const request: SolicitudPendiente = {
+      nivel,
+      selecciones: { ...selecciones },
+      claveIdempotencia: idempotencyKey,
+    }
+    pendingRequest.current = request
+
+    try {
+      localStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify(request))
+      const selections = subjects.map((asignatura) => ({
+        asignatura,
+        horario_id: selecciones[asignatura].split('\u0000')[1],
+      }))
+      const response = await fetch('/api/matricula/reservas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nivel,
+          clave_idempotencia: idempotencyKey,
+          selecciones: selections,
+        }),
+        cache: 'no-store',
+      })
+      const result: unknown = await response.json()
+
+      if (!response.ok || !isRecord(result)) {
+        if (response.status < 500) {
+          localStorage.removeItem(PENDING_STORAGE_KEY)
+          pendingRequest.current = null
+          if (reservationToRecover.current && response.status === 409) {
+            localStorage.removeItem(FLOW_STORAGE_KEY)
+            reservationToRecover.current = null
+            setRecuperandoReserva(false)
+            setReservaVencida(true)
+            setNotice('La reserva anterior venció o terminó. Puedes modificar la selección y comenzar otra.')
+          }
+        }
+        setActionError(isRecord(result) && typeof result.error === 'string'
+          ? result.error
+          : 'No se pudo crear la reserva. Intenta nuevamente.')
+        return
+      }
+
+      const remaining = Number(result.segundos_restantes)
+      if (
+        typeof result.reserva_id !== 'string'
+        || typeof result.vence_en !== 'string'
+        || !Number.isInteger(remaining)
+        || remaining <= 0
+      ) {
+        setActionError('El servidor no devolvió una reserva vigente. Actualiza la página e inténtalo nuevamente.')
+        return
+      }
+
+      const activeReservation: ReservaActiva = {
+        id: result.reserva_id,
+        expiresAt: result.vence_en,
+        idempotencyKey,
+        deadline: performance.now() + remaining * 1000,
+      }
+      setReserva(activeReservation)
+      setReservaVencida(false)
+      setRecuperandoReserva(false)
+      setDocumentosContinuados(false)
+      setEtapa('documentos')
+      reservationToRecover.current = null
+      pendingRequest.current = null
+      localStorage.removeItem(PENDING_STORAGE_KEY)
+    } catch (reservationError) {
+      console.error('No se pudo completar la solicitud de reserva:', reservationError)
+      setActionError('No pudimos confirmar el resultado. Puedes reintentar; se usará la misma clave para evitar duplicados.')
+    } finally {
+      setCreatingReservation(false)
+    }
   }
 
   const continuarAPago = () => {
+    if (!reserva || segundosRestantes <= 0) return
     setDocumentosContinuados(true)
     setEtapa('pago')
   }
 
-  const cancelarProceso = () => {
-    if (!window.confirm('¿Quieres cancelar y borrar la selección actual? Todavía no hay una reserva ni un pago iniciado.')) return
+  const cancelarProceso = async () => {
+    const reservationId = reserva?.id ?? reservationToRecover.current
+    if (!window.confirm(reservationId
+      ? '¿Quieres cancelar la reserva y liberar los cupos apartados?'
+      : '¿Quieres borrar la selección actual? Todavía no hay una reserva creada.')) return
+
+    if (reservationId) {
+      try {
+        const response = await fetch(`/api/matricula/reservas/${reservationId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accion: 'cancelar' }),
+          cache: 'no-store',
+        })
+        const result: unknown = await response.json()
+        if (!response.ok) {
+          setActionError(isRecord(result) && typeof result.error === 'string'
+            ? result.error
+            : 'No se pudo cancelar la reserva. La selección se mantiene.')
+          return
+        }
+      } catch (cancelError) {
+        console.error('No se pudo cancelar la reserva:', cancelError)
+        setActionError('No pudimos confirmar la cancelación. La reserva se mantiene y debes intentarlo nuevamente.')
+        return
+      }
+    }
+
+    try {
+      localStorage.removeItem(FLOW_STORAGE_KEY)
+      localStorage.removeItem(PENDING_STORAGE_KEY)
+    } catch (storageError) {
+      console.error('No se pudo limpiar el estado local de matrícula:', storageError)
+    }
+    pendingRequest.current = null
+    reservationToRecover.current = null
+    setRecuperandoReserva(false)
+    setReserva(null)
+    setReservaVencida(false)
     setSelecciones({})
     setDocumentosContinuados(false)
     setEtapa('seleccion')
-    setNotice('Se borró la selección de esta página. No había ninguna reserva ni pago activo que cancelar.')
+    setError(null)
+    setActionError(null)
+    setNotice(reservationId
+      ? 'La reserva fue cancelada y los cupos quedaron liberados.'
+      : 'Se borró la selección de esta página. No había una reserva que cancelar.')
+    if (reservationId) void cargarBloques()
   }
 
   return (
@@ -250,7 +581,7 @@ export default function MatriculaPage() {
               {etapa === 'seleccion'
                 ? 'Elige un horario para cada asignatura obligatoria. Las secciones equivalentes del mismo ramo y horario se muestran agrupadas.'
                 : etapa === 'documentos'
-                  ? 'Esta etapa está preparada para continuar sin adjuntar archivos. La carga se habilitará cuando se definan los requisitos documentales.'
+                  ? 'Puedes continuar sin adjuntar archivos. La carga se habilitará cuando se definan los requisitos documentales.'
                   : 'La confirmación de matrícula y el pago estarán disponibles cuando la verificación segura esté conectada.'}
             </p>
             <div
@@ -258,11 +589,15 @@ export default function MatriculaPage() {
               className="mt-6 rounded-2xl border border-[#5B9CD8]/30 bg-[#5B9CD8]/10 p-4 text-sm font-medium text-[#1A2C42]"
             >
               Los cupos consideran matrículas confirmadas y reservas temporales vigentes.
-              Esta selección todavía no reserva los cupos; la disponibilidad debe validarse al crear la reserva.
+              {reserva
+                ? ` Reserva creada y persistida. Tiempo restante: ${formatTime(segundosRestantes)}.`
+                : reservaVencida
+                  ? ' La reserva anterior venció; sus cupos ya no están apartados.'
+                  : ' La selección no aparta cupos hasta crear una reserva.'}
             </div>
           </div>
 
-          {loading ? (
+          {loading || !restauracionCompleta ? (
             <div className="flex items-center justify-center gap-3 py-16 text-sm text-[#667A8A]" role="status">
               <RefreshCw className="h-5 w-5 animate-spin" aria-hidden="true" />
               Cargando horarios...
@@ -302,7 +637,9 @@ export default function MatriculaPage() {
                 </div>
 
                 <div role="status" className="mt-6 rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
-                  Tu selección solo se conserva en esta página; no hay una reserva vigente ni un temporizador de pago.
+                  {reserva
+                    ? `Tu reserva ${reserva.id} sigue activa hasta ${new Date(reserva.expiresAt).toLocaleTimeString('es-CL')}. Quedan ${formatTime(segundosRestantes)}. No se inició una transacción con Transbank.`
+                    : 'No hay una reserva vigente. No se inició una transacción con Transbank.'}
                 </div>
 
                 <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
@@ -353,30 +690,27 @@ export default function MatriculaPage() {
                     <h2 id="documentos-title" className="text-lg font-bold">Etapa documental</h2>
                     <p className="mt-2 text-sm leading-6 text-[#667A8A]">
                       Por ahora no se solicitan documentos. No adjuntes ni envíes archivos en esta etapa.
-                      Podrás continuar sin documentos cuando el flujo de matrícula esté conectado.
+                      La reserva y su vencimiento se conservan mientras continúas sin adjuntos.
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-6 rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
-                  La selección de horarios se conserva mientras permanezcas en esta página.
-                  Aún no se ha creado una reserva, no hay temporizador y los cupos no están apartados.
+                  {reserva
+                    ? `Reserva activa: ${reserva.id}. Tiempo restante: ${formatTime(segundosRestantes)}. El vencimiento persistido no se reinicia al volver o recargar.`
+                    : 'No hay una reserva vigente; los cupos no están apartados.'}
                 </div>
 
                 {documentosContinuados && (
                   <p role="status" className="mt-4 rounded-xl border border-[#5B9CD8]/30 bg-[#5B9CD8]/10 p-4 text-sm">
-                    Etapa documental completada en esta vista. La selección no se guardó en el servidor
-                    y el pago todavía no está habilitado.
+                    Etapa documental completada sin adjuntar archivos. La reserva se mantiene y el pago todavía no está habilitado.
                   </p>
                 )}
 
                 <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                   <button
                     type="button"
-                    onClick={() => {
-                      setDocumentosContinuados(false)
-                      setEtapa('seleccion')
-                    }}
+                    onClick={() => setEtapa('seleccion')}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-[#1A2C42] transition-colors hover:bg-slate-50"
                   >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -394,6 +728,7 @@ export default function MatriculaPage() {
                     <button
                       type="button"
                       onClick={continuarAPago}
+                      disabled={!reserva || segundosRestantes <= 0}
                       className="rounded-xl bg-[#5B9CD8] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4B8ECB] disabled:cursor-default disabled:opacity-60"
                     >
                       Continuar a pago
@@ -429,11 +764,18 @@ export default function MatriculaPage() {
                   id="nivel"
                   value={nivel}
                   onChange={(event) => seleccionarNivel(event.target.value)}
+                  disabled={Boolean(reserva) || recuperandoReserva}
                   className="w-full rounded-xl border border-slate-300 bg-[#F8FBFD] p-3 text-sm"
                 >
                   {niveles.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
               </div>
+
+              {(reserva || recuperandoReserva) && (
+                <p role="status" className="mx-auto mt-4 max-w-2xl rounded-xl border border-[#F5D372]/70 bg-[#F5D372]/20 p-4 text-sm">
+                  Volver conserva la reserva y su TTL. Para cambiar horarios, cancela esta reserva y comienza otra; el sistema no tiene una operación que cambie sus bloques manteniendo el mismo vencimiento.
+                </p>
+              )}
 
               <div className="mt-10 space-y-8">
                 {subjects.map((subject) => {
@@ -467,7 +809,7 @@ export default function MatriculaPage() {
                                 role="radio"
                                 key={option.key}
                                 aria-checked={selected}
-                                disabled={(full && !selected) || horarioYaSeleccionado}
+                                disabled={Boolean(reserva) || recuperandoReserva || (full && !selected) || horarioYaSeleccionado}
                                 onClick={() => {
                                   setSelecciones((current) => {
                                     if (current[subject] === option.key) {
@@ -479,12 +821,13 @@ export default function MatriculaPage() {
                                     return { ...current, [subject]: option.key }
                                   })
                                   setNotice(null)
+                                  setActionError(null)
                                 }}
                                 className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-left transition-colors ${
                                   selected
                                     ? 'border-[#4B8ECB] bg-[#5B9CD8]/10'
                                     : 'border-slate-200 hover:border-[#5B9CD8]/60'
-                                } ${(full || horarioYaSeleccionado) && !selected ? 'cursor-not-allowed opacity-70' : ''}`}
+                                } ${(Boolean(reserva) || recuperandoReserva || ((full || horarioYaSeleccionado) && !selected)) ? 'cursor-not-allowed opacity-70' : ''}`}
                               >
                                 <span
                                   aria-hidden="true"
@@ -531,10 +874,16 @@ export default function MatriculaPage() {
                   <button
                     type="button"
                     onClick={confirmarSeleccion}
-                    disabled={!seleccionCompleta}
+                    disabled={!seleccionCompleta || creatingReservation}
                     className="rounded-xl bg-[#5B9CD8] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#4B8ECB] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Revisar selección
+                    {creatingReservation
+                      ? 'Creando reserva...'
+                      : reserva
+                        ? 'Volver a documentos'
+                        : recuperandoReserva
+                          ? 'Recuperar reserva'
+                          : 'Reservar y continuar'}
                   </button>
                 </div>
                 <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
@@ -548,11 +897,11 @@ export default function MatriculaPage() {
                   <button
                     type="button"
                     onClick={cancelarProceso}
-                    disabled={Object.keys(selecciones).length === 0}
+                    disabled={Object.keys(selecciones).length === 0 || creatingReservation}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#E96A6A]/40 px-5 py-3 text-sm font-bold text-[#9F3030] transition-colors hover:bg-[#E96A6A]/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
-                    Cancelar selección
+                    {reserva || recuperandoReserva ? 'Cancelar reserva' : 'Cancelar selección'}
                   </button>
                 </div>
                 {notice && (
@@ -563,6 +912,12 @@ export default function MatriculaPage() {
                 )}
               </div>
             </>
+          )}
+
+          {actionError && (
+            <p role="alert" className="mx-auto mt-6 max-w-3xl rounded-xl border border-[#E96A6A]/30 bg-[#E96A6A]/10 p-4 text-sm font-semibold text-[#9F3030]">
+              {actionError}
+            </p>
           )}
 
           <div className="mt-10 border-t border-slate-200 pt-6 text-center">
