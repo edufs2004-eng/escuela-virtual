@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import {
   BookOpenCheck,
+  ChevronDown,
   ChevronRight,
   Clock,
   GraduationCap,
@@ -13,7 +14,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react'
-import logoTexto from '@/logo.png'
+import logoTexto from '@/assets/Logo_2.webp'
 import HeroFraseVideo from '@/components/inicio/HeroFraseVideo'
 import BotonesRedes from '@/components/sitio/BotonesRedes'
 import Encabezado from '@/components/sitio/Encabezado'
@@ -211,10 +212,22 @@ export default function Home() {
 
       {/* Zona 3 (azul): ¿Cómo nace Esencia? */}
       <section id="historia" className="scroll-mt-32 bg-[#EAF2F8] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-3xl bg-[#2E6DA4] px-5 py-8 text-white shadow-xl sm:px-8 sm:py-10 lg:px-10">
-          <h2 className="text-center text-3xl font-bold sm:text-4xl">¿Cómo nace Esencia?</h2>
+        <details className="group mx-auto max-w-7xl rounded-3xl bg-[#2E6DA4] px-5 py-5 text-white shadow-xl sm:px-8 sm:py-6 lg:px-10">
+          <summary className="flex cursor-pointer list-none flex-col items-center justify-center gap-3 text-center">
+            <h2 className="text-3xl font-bold sm:text-4xl">¿Cómo nace Esencia?</h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-blue-50 sm:text-base">
+              El colegio virtual Esencia nace para llevar a los hogares de los niños y jóvenes de Chile una forma de
+              enseñar humana, cálida y única. Esta mirada proviene de los años de experiencia y vocación que nos heredó en
+              aulas y clases particulares la profesora normalista y fonoaudióloga <strong>Lila Castro</strong>.
+            </p>
+            <ChevronDown
+              className="h-6 w-6 shrink-0 transition-transform duration-300 group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
 
-          <div className="mt-7 grid items-start gap-6 lg:grid-cols-5">
+          <div className="mt-6 border-t border-white/20 pt-6">
+            <div className="grid items-start gap-6 lg:grid-cols-5">
             <div className="space-y-4 lg:col-span-2">
               <figure className="space-y-3">
                 {FOTO_LILA_CASTRO ? (
@@ -244,12 +257,6 @@ export default function Home() {
             </div>
 
             <div className="space-y-3 leading-relaxed text-white lg:col-span-3">
-              <p>
-                El colegio virtual Esencia nace para llevar a los hogares de los niños y jóvenes de Chile una forma de
-                enseñar humana, cálida y única. Esta mirada proviene de los años de experiencia y vocación que nos heredó en
-                aulas y clases particulares la profesora normalista y fonoaudióloga <strong>Lila Castro</strong>.
-              </p>
-
               <h3 className="pt-1 text-xl font-bold text-[#F5D372] sm:text-2xl">
                 Su legado: ciencia y dedicación al servicio del aprendizaje
               </h3>
@@ -286,19 +293,20 @@ export default function Home() {
                 dedicaron su vida a despertar y potenciar las capacidades de otros”.
               </blockquote>
             </div>
-          </div>
+            </div>
 
-          {/* Cierre con la frase del logo, sin el dibujo */}
-          <div className="mt-8 flex justify-center">
-            <div className="rounded-2xl bg-white px-6 py-3 shadow-lg">
-              <Image
-                src={logoTexto}
-                alt="Esencia, Colegio Virtual: Tu camino, guiado por nuestra experiencia"
-                className="h-14 w-auto sm:h-16"
-              />
+            {/* Cierre con la frase del logo, sin el dibujo */}
+            <div className="mt-8 flex justify-center">
+              <div className="rounded-2xl bg-white px-6 py-3 shadow-lg">
+                <Image
+                  src={logoTexto}
+                  alt="Esencia, Colegio Virtual: Tu camino, guiado por nuestra experiencia"
+                  className="h-14 w-auto sm:h-16"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        </details>
       </section>
 
       {/* Zona 4 (franja celestita): Nuestra Propuesta */}

@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import logo from '@/logo.png'
+import logo from '@/assets/logo_1.webp'
 import { ENLACES_MENU } from '@/config/sitio'
 import MenuMovil from './MenuMovil'
 
