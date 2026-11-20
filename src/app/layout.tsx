@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Escencia | Escuela Virtual Chile",
-  description: "Educación virtual con clases en vivo y acompañamiento docente.",
+  title: "Colegio Virtual Esencia",
+  description: "Educación flexible, con estructura: clases en vivo de 1° básico a IV medio y preparación para exámenes libres del MINEDUC.",
 };
 
 export default function RootLayout({
