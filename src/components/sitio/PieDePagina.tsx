@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function PieDePagina() {
   return (
-    <footer className="border-t border-slate-800 bg-[#1A2C42] px-4 py-8 text-center text-xs text-[#667A8A]">
+    <footer className="border-t border-slate-800 bg-[#1A2C42] px-4 py-8 text-center text-xs text-[var(--brand-subtext)]">
       <nav
         aria-label="Más información"
         className="mb-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-semibold text-slate-300"

@@ -79,7 +79,7 @@ const NIVELES = [
 
 const claseCuadro =
   'space-y-5 rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xs transition-shadow duration-300 hover:shadow-xl sm:p-10'
-const claseTextoCuadro = 'space-y-4 text-sm leading-relaxed text-[#667A8A] sm:text-base'
+const claseTextoCuadro = 'space-y-4 text-sm leading-relaxed text-[var(--brand-subtext)] sm:text-base'
 const claseItemPlan = 'rounded-2xl border border-[#5B9CD8]/30 bg-[#EAF2F8] p-5'
 const claseCampo =
   'w-full bg-[#EAF2F8] border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#5B9CD8] transition-all'
@@ -146,7 +146,7 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-[#1A2C42] sm:text-4xl">
               Educación adaptada para necesidades educativas especiales (NEE)
             </h2>
-            <p className="leading-relaxed text-[#667A8A]">
+            <p className="leading-relaxed text-[var(--brand-subtext)]">
               Sabemos que cada estudiante aprende a su propio ritmo. Nuestro colegio promueve un entorno educativo que se
               adapta a tus necesidades, en un ambiente respetuoso.
             </p>
@@ -175,7 +175,7 @@ export default function Home() {
                   <h3 className={`text-base font-bold ${indice === 0 ? 'text-[#F5D372]' : 'text-[#1A2C42]'}`}>
                     {tarjeta.titulo}
                   </h3>
-                  <p className={`mt-1 text-sm leading-relaxed ${indice === 0 ? 'text-slate-300' : 'text-[#667A8A]'}`}>
+                  <p className={`mt-1 text-sm leading-relaxed ${indice === 0 ? 'text-slate-300' : 'text-[var(--brand-subtext)]'}`}>
                     {tarjeta.texto}
                   </p>
                 </div>
@@ -203,7 +203,7 @@ export default function Home() {
               <tarjeta.Icono className={`mt-0.5 h-6 w-6 shrink-0 ${tarjeta.colorIcono}`} aria-hidden="true" />
               <div>
                 <h3 className="text-base font-bold text-[#1A2C42]">{tarjeta.titulo}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-[#667A8A]">{tarjeta.texto}</p>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--brand-subtext)]">{tarjeta.texto}</p>
               </div>
             </article>
           ))}
@@ -315,7 +315,7 @@ export default function Home() {
           <div className="mx-auto mb-16 max-w-3xl space-y-3 text-center">
             <span className="text-xs font-bold uppercase tracking-widest text-[#4B8ECB]">Nuestra Propuesta</span>
             <h2 className="text-3xl font-bold text-[#1A2C42]">¿Por qué elegir el colegio virtual Esencia?</h2>
-            <p className="text-[#667A8A]">
+            <p className="text-[var(--brand-subtext)]">
               Integramos la flexibilidad del entorno digital con la calidez y estructura del acompañamiento pedagógico
               humano.
             </p>
@@ -367,7 +367,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-[#1A2C42] sm:text-2xl">Flexibilidad curricular y talleres</h3>
               </div>
-              <div className="space-y-3 text-sm leading-relaxed text-[#667A8A] sm:text-base">
+              <div className="space-y-3 text-sm leading-relaxed text-[var(--brand-subtext)] sm:text-base">
                 <div className="space-y-2 rounded-xl border-l-4 border-[#71C997] bg-white/80 px-5 py-4">
                   <p>
                     <strong className="text-[#1A2C42]">Nuestro colegio se adapta a ti:</strong> Modelo innovador de
@@ -479,7 +479,7 @@ export default function Home() {
         </div>
 
         <div className="mx-auto grid max-w-7xl items-start gap-10 px-4 py-16 sm:px-6 lg:grid-cols-5 lg:px-8">
-          <div className="space-y-5 leading-relaxed text-[#667A8A] lg:col-span-3">
+          <div className="space-y-5 leading-relaxed text-[var(--brand-subtext)] lg:col-span-3">
             <p>
               Desarrollamos todos los contenidos exigidos por el currículum oficial del MINEDUC desde{' '}
               <strong className="text-[#1A2C42]">1° básico hasta IV medio</strong>, combinando estructura, acompañamiento
@@ -554,7 +554,7 @@ export default function Home() {
                 className="aspect-video w-full rounded-3xl bg-[#1A2C42] shadow-xl"
               />
             ) : (
-              <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-[#5B9CD8]/40 bg-[#EAF2F8] text-center text-[#667A8A]">
+              <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-[#5B9CD8]/40 bg-[#EAF2F8] text-center text-[var(--brand-subtext)]">
                 <Play className="h-10 w-10 text-[#5B9CD8]" aria-hidden="true" />
                 <span className="text-sm font-semibold">Video de la directora</span>
                 <span className="text-xs">Próximamente</span>
@@ -582,13 +582,13 @@ export default function Home() {
                   <caption className="sr-only">Valores para {plan.nivel}</caption>
                   <tbody>
                     <tr className="border-b border-slate-100">
-                      <th scope="row" className="px-6 py-4 text-left font-medium text-[#667A8A]">
+                      <th scope="row" className="px-6 py-4 text-left font-medium text-[var(--brand-subtext)]">
                         Matrícula
                       </th>
                       <td className="px-6 py-4 text-right text-lg font-extrabold text-[#1A2C42]">{plan.matricula}</td>
                     </tr>
                     <tr>
-                      <th scope="row" className="px-6 py-4 text-left font-medium text-[#667A8A]">
+                      <th scope="row" className="px-6 py-4 text-left font-medium text-[var(--brand-subtext)]">
                         Arancel
                       </th>
                       <td className="px-6 py-4 text-right text-lg font-extrabold text-[#1A2C42]">{plan.arancel}</td>
@@ -602,11 +602,11 @@ export default function Home() {
           <div className="mx-auto mt-10 max-w-3xl space-y-6">
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
               <h3 className="text-lg font-bold text-[#1A2C42]">Asegura tu horario hoy y comienza a pagar en enero</h3>
-              <p className="text-sm leading-relaxed text-[#667A8A]">
+              <p className="text-sm leading-relaxed text-[var(--brand-subtext)]">
                 Sabemos que diciembre es un mes lleno de gastos y celebraciones, por eso no queremos agobiar el presupuesto
                 de tu familia.
               </p>
-              <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-[#667A8A]">
+              <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-[var(--brand-subtext)]">
                 <li>
                   <strong className="text-[#1A2C42]">Reserva tu malla académica en diciembre:</strong> Pagando únicamente la
                   matrícula este mes, aseguras tu cupo y accedes de inmediato a la mayor variedad de bloques horarios.
@@ -618,7 +618,7 @@ export default function Home() {
               </ul>
             </div>
 
-            <p className="text-sm leading-relaxed text-[#667A8A]">
+            <p className="text-sm leading-relaxed text-[var(--brand-subtext)]">
               <strong className="text-[#1A2C42]">Formación completa desde el primer día:</strong> Todos nuestros planes
               incluyen acceso a talleres, nivelación inicial y reforzamiento académico para acompañar cada etapa de tu
               aprendizaje.
@@ -626,7 +626,7 @@ export default function Home() {
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm">
               <h3 className="font-bold text-[#4B8ECB]">Modalidades de pago</h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-[#667A8A]">
+              <ul className="mt-2 list-inside list-disc space-y-1 text-[var(--brand-subtext)]">
                 <li>Contado mediante nuestra plataforma</li>
                 <li>En cuotas con tarjetas bancarias</li>
               </ul>

@@ -22,7 +22,7 @@ export default function Encabezado() {
             <Image src={logo} alt="Colegio Virtual Esencia" loading="eager" className="h-16 w-auto sm:h-20 lg:h-24" />
           </Link>
 
-          <nav aria-label="Menú principal" className="hidden items-center gap-6 text-sm font-semibold text-[#667A8A] xl:flex">
+          <nav aria-label="Menú principal" className="hidden items-center gap-6 text-sm font-semibold text-[var(--brand-subtext)] xl:flex">
             {ENLACES_MENU.map((enlace) => (
               <a key={enlace.href} href={enlace.href} className="transition-colors duration-200 hover:text-[#4B8ECB]">
                 {enlace.texto}
@@ -33,7 +33,7 @@ export default function Encabezado() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="hidden text-xs font-bold text-[#667A8A] transition-colors hover:text-[#4B8ECB] sm:inline-block"
+              className="hidden text-xs font-bold text-[var(--brand-subtext)] transition-colors hover:text-[#4B8ECB] sm:inline-block"
             >
               Acceso Alumnos
             </Link>

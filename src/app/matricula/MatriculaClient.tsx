@@ -577,7 +577,7 @@ export default function MatriculaPage() {
                   ? 'Antecedentes y documentos'
                   : 'Confirmación y pago'}
             </h1>
-            <p className="mt-4 text-sm leading-6 text-[#667A8A] sm:text-base">
+            <p className="mt-4 text-sm leading-6 text-[var(--brand-subtext)] sm:text-base">
               {etapa === 'seleccion'
                 ? 'Elige un horario para cada asignatura obligatoria. Las secciones equivalentes del mismo ramo y horario se muestran agrupadas.'
                 : etapa === 'documentos'
@@ -598,7 +598,7 @@ export default function MatriculaPage() {
           </div>
 
           {loading || !restauracionCompleta ? (
-            <div className="flex items-center justify-center gap-3 py-16 text-sm text-[#667A8A]" role="status">
+            <div className="flex items-center justify-center gap-3 py-16 text-sm text-[var(--brand-subtext)]" role="status">
               <RefreshCw className="h-5 w-5 animate-spin" aria-hidden="true" />
               Cargando horarios...
             </div>
@@ -618,7 +618,7 @@ export default function MatriculaPage() {
             <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-slate-200 bg-[#F8FBFD] p-6 text-center">
               <ShieldAlert className="mx-auto h-8 w-8 text-[#F5D372]" aria-hidden="true" />
               <p className="mt-3 font-semibold">Aún no hay horarios publicados.</p>
-              <p className="mt-1 text-sm text-[#667A8A]">Vuelve a revisar más adelante.</p>
+              <p className="mt-1 text-sm text-[var(--brand-subtext)]">Vuelve a revisar más adelante.</p>
             </div>
           ) : etapa === 'pago' ? (
             <section className="mx-auto mt-10 max-w-3xl" aria-labelledby="pago-title">
@@ -629,7 +629,7 @@ export default function MatriculaPage() {
                   </span>
                   <div>
                     <h2 id="pago-title" className="text-lg font-bold">Pago aún no disponible</h2>
-                    <p className="mt-2 text-sm leading-6 text-[#667A8A]">
+                    <p className="mt-2 text-sm leading-6 text-[var(--brand-subtext)]">
                       No se inició una transacción con Transbank. Esta página no confirma pagos ni matrículas.
                       Cuando se habilite, el estado se verificará con el proveedor desde el servidor.
                     </p>
@@ -688,7 +688,7 @@ export default function MatriculaPage() {
                   </span>
                   <div>
                     <h2 id="documentos-title" className="text-lg font-bold">Etapa documental</h2>
-                    <p className="mt-2 text-sm leading-6 text-[#667A8A]">
+                    <p className="mt-2 text-sm leading-6 text-[var(--brand-subtext)]">
                       Por ahora no se solicitan documentos. No adjuntes ni envíes archivos en esta etapa.
                       La reserva y su vencimiento se conservan mientras continúas sin adjuntos.
                     </p>
@@ -785,7 +785,7 @@ export default function MatriculaPage() {
                     <fieldset key={subject} className="border-t border-slate-200 pt-6">
                       <legend className="px-2 text-lg font-bold">{subject}</legend>
                       {options.length === 0 ? (
-                        <p className="mt-3 rounded-xl bg-[#F8FBFD] p-4 text-sm text-[#667A8A]">
+                        <p className="mt-3 rounded-xl bg-[#F8FBFD] p-4 text-sm text-[var(--brand-subtext)]">
                           No hay horarios publicados para esta asignatura y nivel.
                         </p>
                       ) : (
@@ -842,7 +842,7 @@ export default function MatriculaPage() {
                                   <span className={`mt-2 block text-xs font-semibold ${full ? 'text-[#9F3030]' : 'text-[#3D7A56]'}`}>
                                     Quedan {option.cuposDisponibles} cupos libres
                                   </span>
-                                  <span className="mt-1 block text-xs text-[#667A8A]">
+                                  <span className="mt-1 block text-xs text-[var(--brand-subtext)]">
                                     Cupos calculados al momento; se vuelven a validar al reservar.
                                   </span>
                                   {horarioYaSeleccionado && (
@@ -851,7 +851,7 @@ export default function MatriculaPage() {
                                     </span>
                                   )}
                                   {full && (
-                                    <span className="mt-1 block text-xs text-[#667A8A]">
+                                    <span className="mt-1 block text-xs text-[var(--brand-subtext)]">
                                       Puedes volver a revisar en 5 a 10 minutos; no se garantiza que se libere un cupo.
                                     </span>
                                   )}
@@ -868,7 +868,7 @@ export default function MatriculaPage() {
 
               <div className="mt-10 rounded-2xl border border-slate-200 bg-[#F8FBFD] p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-[#667A8A]">
+                  <p className="text-sm text-[var(--brand-subtext)]">
                     Asignaturas seleccionadas: <strong className="text-[#1A2C42]">{Object.keys(selecciones).length} de {subjects.length}</strong>
                   </p>
                   <button
@@ -921,7 +921,7 @@ export default function MatriculaPage() {
           )}
 
           <div className="mt-10 border-t border-slate-200 pt-6 text-center">
-            <p className="text-sm text-[#667A8A]">
+            <p className="text-sm text-[var(--brand-subtext)]">
               ¿Tienes consultas sobre el programa?
             </p>
             <Link
@@ -933,7 +933,7 @@ export default function MatriculaPage() {
           </div>
         </section>
 
-        <p className="py-6 text-center text-xs text-[#667A8A]">
+        <p className="py-6 text-center text-xs text-[var(--brand-subtext)]">
           © 2027 Escuela Virtual Escencia
         </p>
       </div>

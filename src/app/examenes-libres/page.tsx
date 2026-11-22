@@ -53,7 +53,7 @@ const ASIGNATURAS = [
 
 const claseBloque = 'space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs sm:p-8'
 const claseTitulo = 'text-xl font-bold text-[#1A2C42] sm:text-2xl'
-const claseTexto = 'text-sm leading-relaxed text-[#667A8A] sm:text-base'
+const claseTexto = 'text-sm leading-relaxed text-[var(--brand-subtext)] sm:text-base'
 
 export default function ExamenesLibresPage() {
   return (
@@ -124,7 +124,7 @@ export default function ExamenesLibresPage() {
             </p>
           </article>
 
-          <p className="text-xs leading-relaxed text-[#667A8A]">
+          <p className="text-xs leading-relaxed text-[var(--brand-subtext)]">
             Información referencial basada en Ayuda MINEDUC. Revisa siempre los requisitos, plazos y temarios vigentes en el
             sitio oficial.
           </p>

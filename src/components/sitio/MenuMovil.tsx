@@ -41,7 +41,7 @@ export default function MenuMovil() {
           <Link
             href="/login"
             onClick={() => setAbierto(false)}
-            className="mt-1 block rounded-xl border-t border-slate-100 px-4 py-3 text-sm font-bold text-[#667A8A] transition-colors hover:bg-[#EAF2F8] hover:text-[#4B8ECB]"
+            className="mt-1 block rounded-xl border-t border-slate-100 px-4 py-3 text-sm font-bold text-[var(--brand-subtext)] transition-colors hover:bg-[#EAF2F8] hover:text-[#4B8ECB]"
           >
             Acceso Alumnos
           </Link>

@@ -378,7 +378,7 @@ export default function AdminRamosPage() {
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-[#EAF2F8] text-[#667A8A] flex items-center justify-center text-sm">
+      <div className="min-h-screen bg-[#EAF2F8] text-[var(--brand-subtext)] flex items-center justify-center text-sm">
         Verificando acceso...
       </div>
     )
@@ -400,7 +400,7 @@ export default function AdminRamosPage() {
             </div>
             <div>
               <h1 className="font-bold text-lg text-[#1A2C42]">Panel de Administración</h1>
-              <span className="text-xs text-[#667A8A]">Gestión de Bloques Horarios y Cupos</span>
+              <span className="text-xs text-[var(--brand-subtext)]">Gestión de Bloques Horarios y Cupos</span>
             </div>
           </div>
           <button 
@@ -420,7 +420,7 @@ export default function AdminRamosPage() {
             <h2 className="text-lg font-bold text-[#1A2C42] flex items-center gap-2">
               <Clock className="w-5 h-5 text-[#5B9CD8]" /> Catálogo de Horarios
             </h2>
-            <p className="mt-1 text-xs text-[#667A8A]">
+            <p className="mt-1 text-xs text-[var(--brand-subtext)]">
               Crea las opciones disponibles. Después podrás asignarlas a los bloques de ramos.
             </p>
           </div>
@@ -477,7 +477,7 @@ export default function AdminRamosPage() {
               {savingHorario ? 'Guardando...' : 'Agregar horario'}
             </button>
             {horarioInicio && horarioFin && (
-              <p className="text-xs text-[#667A8A] sm:col-span-2 lg:col-span-4">
+              <p className="text-xs text-[var(--brand-subtext)] sm:col-span-2 lg:col-span-4">
                 Se guardará como: <strong className="text-[#1A2C42]">{horarioDia} {horarioInicio} - {horarioFin}</strong>
               </p>
             )}
@@ -502,11 +502,11 @@ export default function AdminRamosPage() {
           )}
 
           {horariosLoading ? (
-            <p role="status" className="text-xs text-[#667A8A]">Cargando catálogo...</p>
+            <p role="status" className="text-xs text-[var(--brand-subtext)]">Cargando catálogo...</p>
           ) : horariosError ? (
             <p role="alert" className="text-xs text-[#9F3030]">{horariosError}</p>
           ) : horarios.length === 0 ? (
-            <p className="rounded-xl bg-[#F8FBFD] p-4 text-xs text-[#667A8A]">
+            <p className="rounded-xl bg-[#F8FBFD] p-4 text-xs text-[var(--brand-subtext)]">
               Aún no hay opciones en el catálogo. Agrega un horario para poder crear bloques de ramos.
             </p>
           ) : (
@@ -571,7 +571,7 @@ export default function AdminRamosPage() {
               {horariosError ? (
                 <p role="alert" className="mt-2 text-xs text-[#9F3030]">{horariosError}</p>
               ) : !horariosLoading && horarios.length === 0 ? (
-                <p className="mt-2 text-xs text-[#667A8A]">
+                <p className="mt-2 text-xs text-[var(--brand-subtext)]">
                   No hay horarios disponibles en el catálogo.
                 </p>
               ) : null}
@@ -622,9 +622,9 @@ export default function AdminRamosPage() {
           </div>
 
           {loading ? (
-            <div className="p-12 text-center text-xs text-[#667A8A]">Cargando oferta académica...</div>
+            <div className="p-12 text-center text-xs text-[var(--brand-subtext)]">Cargando oferta académica...</div>
           ) : bloques.length === 0 ? (
-            <div className="p-12 text-center text-xs text-[#667A8A] flex flex-col items-center gap-2">
+            <div className="p-12 text-center text-xs text-[var(--brand-subtext)] flex flex-col items-center gap-2">
               <ShieldAlert className="w-8 h-8 text-[#F5D372]" />
               No hay bloques registrados todavía. Crea el primero arriba.
             </div>
@@ -641,7 +641,7 @@ export default function AdminRamosPage() {
                     <th className="p-4 pr-6 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-[#667A8A]">
+                <tbody className="divide-y divide-slate-100 text-[var(--brand-subtext)]">
                   {bloques.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-4 pl-6 font-bold text-[#1A2C42]">{b.nivel}</td>

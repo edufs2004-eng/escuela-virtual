@@ -190,7 +190,7 @@ export default function LoginPage() {
             <BookOpen className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-extrabold text-[#1A2C42]">Portal Escuela Virtual</h2>
-          <p className="text-xs text-[#667A8A]">Ingresa con tu cuenta institucional</p>
+          <p className="text-xs text-[var(--brand-subtext)]">Ingresa con tu cuenta institucional</p>
         </div>
 
         {loginError && (
@@ -202,7 +202,7 @@ export default function LoginPage() {
             <p className="font-bold">{loginError.title}</p>
             <p>{loginError.message}</p>
             {loginError.code && (
-              <p className="pt-1 font-mono text-[10px] text-[#667A8A]">
+              <p className="pt-1 font-mono text-[10px] text-[var(--brand-subtext)]">
                 Código de diagnóstico: {loginError.code}
               </p>
             )}
@@ -213,7 +213,7 @@ export default function LoginPage() {
           <div>
             <label className="block text-xs font-bold text-[#1A2C42] mb-1.5">Correo Electrónico</label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[#667A8A]">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[var(--brand-subtext)]">
                 <Mail className="w-4 h-4" />
               </span>
               <input 
@@ -230,7 +230,7 @@ export default function LoginPage() {
           <div>
             <label className="block text-xs font-bold text-[#1A2C42] mb-1.5">Contraseña</label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[#667A8A]">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[var(--brand-subtext)]">
                 <Lock className="w-4 h-4" />
               </span>
               <input 
@@ -254,7 +254,7 @@ export default function LoginPage() {
         </form>
 
         <div className="text-center pt-2 border-t border-slate-100">
-          <Link href="/" className="text-xs text-[#667A8A] hover:text-[#4B8ECB] font-medium transition-colors">
+          <Link href="/" className="text-xs text-[var(--brand-subtext)] hover:text-[#4B8ECB] font-medium transition-colors">
             ← Volver al sitio principal
           </Link>
         </div>

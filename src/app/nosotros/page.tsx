@@ -13,7 +13,7 @@ const PENDIENTE = 'Pronto publicaremos esta información.'
 
 const claseBloque = 'space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs sm:p-8'
 const claseTitulo = 'text-xl font-bold text-[#1A2C42] sm:text-2xl'
-const claseTexto = 'text-sm leading-relaxed text-[#667A8A] sm:text-base'
+const claseTexto = 'text-sm leading-relaxed text-[var(--brand-subtext)] sm:text-base'
 
 function TarjetaMiembro({ miembro }: { miembro: MiembroEquipo }) {
   return (
@@ -38,7 +38,7 @@ function TarjetaMiembro({ miembro }: { miembro: MiembroEquipo }) {
         <h4 className="text-lg font-bold text-[#1A2C42]">{miembro.nombre}</h4>
         <p className="text-sm font-semibold text-[#4B8ECB]">{miembro.cargo}</p>
       </div>
-      <p className="text-sm leading-relaxed text-[#667A8A]">{miembro.descripcion}</p>
+      <p className="text-sm leading-relaxed text-[var(--brand-subtext)]">{miembro.descripcion}</p>
     </article>
   )
 }
